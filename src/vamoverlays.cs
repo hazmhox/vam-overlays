@@ -168,12 +168,12 @@ namespace VAMOverlaysPlugin
 				CreateToggle(FadeAtStart, false);
 							
 				// Fade in time
-				FadeInTime = new JSONStorableFloat("Fade in time", 5.0f, 0.1f, 120.0f, true, true);
+				FadeInTime = new JSONStorableFloat("Fade in time", 5.0f, 0f, 120.0f, true, true);
 				FadeInTime.storeType = JSONStorableParam.StoreType.Full;
 				CreateSlider(FadeInTime, false);			
 						
 				// Fade out time
-				FadeOutTime = new JSONStorableFloat("Fade out time", 5.0f, 0.1f, 120.0f, true, true);
+				FadeOutTime = new JSONStorableFloat("Fade out time", 5.0f, 0f, 120.0f, true, true);
 				FadeOutTime.storeType = JSONStorableParam.StoreType.Full;
 				CreateSlider(FadeOutTime, false);
 
@@ -240,8 +240,8 @@ namespace VAMOverlaysPlugin
 				triggerFadeIn = new JSONStorableAction("Start Fade In", () => { FadeIn(); });
 				triggerFadeOut = new JSONStorableAction("Start Fade Out", () =>	{ FadeOut(); });
 				setFadeColor = new JSONStorableColor("Change fade color", hsvcFA, FadeColorCallback){ isStorable = false };
-				setFadeInTime = new JSONStorableFloat("Change fade in time", 5, setFadeInTimeCallback, 1.0f, 120.0f ){ isStorable = false };
-				setFadeOutTime = new JSONStorableFloat("Change fade out time", 5, setFadeOutTimeCallback, 1.0f, 120.0f ){ isStorable = false };
+				setFadeInTime = new JSONStorableFloat("Change fade in time", 5, setFadeInTimeCallback, 0f, 120.0f ){ isStorable = false };
+				setFadeOutTime = new JSONStorableFloat("Change fade out time", 5, setFadeOutTimeCallback, 0f, 120.0f ){ isStorable = false };
 				setSubtitlesColor = new JSONStorableColor("Change subtitles color", hsvcST, SubtitlesColorCallback ){ isStorable = false };
 				setSubtitlesSize = new JSONStorableFloat("Change subtitles size", 18, (val) => { setSubtitlesSize.valNoCallback = Mathf.Round(val); SubtitlesSizeCallback( setSubtitlesSize.val ); }, 18.0f, 100.0f ){ isStorable = false };
 				setSubtitlesFont = new JSONStorableStringChooser("Change subtitles font", fontChoices, "Arial", "Change subtitles font", choice => SubtitlesFontCallback(choice.val)){ isStorable = false };
@@ -385,9 +385,9 @@ namespace VAMOverlaysPlugin
 		}
 		
 		protected int getFontSize( float size ) {
-			float finalSize = size;
+			float finalSize = size * 2.34f; // original value * tweak for updates (to avoid breaking old scenes)
 			if( isPlayerInVr ) {
-				finalSize = size * 2.5f;
+				finalSize = size * 5f; // VR multiplier - was 2.5f
 			}
 			return (int)Math.Round(finalSize);
 		}
@@ -415,7 +415,7 @@ namespace VAMOverlaysPlugin
 				// Configuration of the RectTransform of the Canvas
 				RectTransform CanvasRecTr = VAMOverlaysGO.GetComponent<RectTransform>();
 				CanvasRecTr.sizeDelta = new Vector2(2560f, 1440f);
-				CanvasRecTr.localPosition = new Vector3(0,0,0.3f);
+				CanvasRecTr.localPosition = new Vector3(0,0,0.8f); // wav 0.3f initially
 				CanvasRecTr.localScale = new Vector3(0.00024f, 0.00024f, 1.0f);
 
 				// Creation of the structure for the fade
@@ -437,8 +437,8 @@ namespace VAMOverlaysPlugin
 				FadeImgRecTr.localRotation = Quaternion.identity;
 				FadeImgRecTr.anchorMin = new Vector2(0, 0);
 				FadeImgRecTr.anchorMax = new Vector2(1, 1);
-				FadeImgRecTr.offsetMin = new Vector2(-2000.0f, -2000.0f);
-				FadeImgRecTr.offsetMax = new Vector2(2000.0f, 2000.0f);
+				FadeImgRecTr.offsetMin = new Vector2(-4000.0f, -4000.0f);
+				FadeImgRecTr.offsetMax = new Vector2(4000.0f, 4000.0f);
 
 				// Creation of the structure for subtitles
 				SubtitlesTxtGO = new GameObject("SubtitlesText");
@@ -457,7 +457,7 @@ namespace VAMOverlaysPlugin
 				
 				SubtitlesTxt.font = FontAssets["Arial"];
 				
-				SubtitlesTxt.fontSize = getFontSize( 18 ); // Will deal automatically with the ratio depending on the VR or desktop state
+				SubtitlesTxt.fontSize = getFontSize( 18 ); // Will deal automatically with the ratio depending on the VR or desktop state - Was 18 initially
 
 				// Selecting the default alignment
 				ChangeSubtitlesAlignment( SubtitleAlignmentChoice.val );			
@@ -480,12 +480,12 @@ namespace VAMOverlaysPlugin
 				
 				// VR Configs
 				if( isPlayerInVr == true ) {
-					SubtitlesRecTr.offsetMin = new Vector2(600.0f, 280.0f);
-					SubtitlesRecTr.offsetMax = new Vector2(-600.0f, -280.0f);
+					SubtitlesRecTr.offsetMin = new Vector2(370.0f, 0.0f); // Was 280f initially
+					SubtitlesRecTr.offsetMax = new Vector2(-370.0f, 0.0f);
 				// Desktop configs
 				} else {
-					SubtitlesRecTr.offsetMin = new Vector2(600.0f, 350.0f);
-					SubtitlesRecTr.offsetMax = new Vector2(-600.0f, -350.0f);
+					SubtitlesRecTr.offsetMin = new Vector2(300.0f, -200.0f);
+					SubtitlesRecTr.offsetMax = new Vector2(-300.0f, 200.0f);
 				}
 			}
             catch(Exception e)
