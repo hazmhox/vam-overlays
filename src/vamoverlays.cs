@@ -14,6 +14,12 @@ using Request = MeshVR.AssetLoader.AssetBundleFromFileRequest;
 //
 // Overlays system to display fades, titles and subtitles
 
+// TESTS Spacedog
+//CanvasRecTr.localPosition = new Vector3(0,0,0.8f);
+//Text size : 38.0f
+//SubtitlesRecTr.offsetMin = new Vector2(600.0f, 100.0f);
+//SubtitlesRecTr.offsetMax = new Vector2(-600.0f, 100.0f);
+
 namespace VAMOverlaysPlugin
 {
     public class VAMOverlays : MVRScript
@@ -162,12 +168,12 @@ namespace VAMOverlaysPlugin
 				CreateToggle(FadeAtStart, false);
 							
 				// Fade in time
-				FadeInTime = new JSONStorableFloat("Fade in time", 5.0f, 1.0f, 120.0f, true, true);
+				FadeInTime = new JSONStorableFloat("Fade in time", 5.0f, 0.1f, 120.0f, true, true);
 				FadeInTime.storeType = JSONStorableParam.StoreType.Full;
 				CreateSlider(FadeInTime, false);			
 						
 				// Fade out time
-				FadeOutTime = new JSONStorableFloat("Fade out time", 5.0f, 1.0f, 120.0f, true, true);
+				FadeOutTime = new JSONStorableFloat("Fade out time", 5.0f, 0.1f, 120.0f, true, true);
 				FadeOutTime.storeType = JSONStorableParam.StoreType.Full;
 				CreateSlider(FadeOutTime, false);
 
