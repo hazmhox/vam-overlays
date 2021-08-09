@@ -115,13 +115,20 @@ namespace VAMOverlaysPlugin
 				
 				// Fonts paths in the bundle. I'm lazy, and I don't think I do have benefits from loading a json file just for simple paths
 				FontList = new Dictionary<string, string>();
-				FontList.Add("Poppins","Assets/VAMFonts/poppins.ttf");
-				FontList.Add("Oswald","Assets/VAMFonts/oswald.ttf");
-				FontList.Add("GlitchInside","Assets/VAMFonts/glitch_inside.otf");
-				FontList.Add("SpaceAge","Assets/VAMFonts/space_age.ttf");
-				FontList.Add("PlanetKosmos","Assets/VAMFonts/planet_kosmos.ttf");
 				FontList.Add("Amalia","Assets/VAMFonts/amalia.ttf");
+				FontList.Add("AnimeAceBB","Assets/VAMFonts/animeacebb_reg.ttf");
+				FontList.Add("AsteraV2","Assets/VAMFonts/astera_v2.ttf");
+				FontList.Add("BebasRegular","Assets/VAMFonts/bebas_regular.ttf");
 				FontList.Add("BirdsOfParadise","Assets/VAMFonts/birds_of_paradise.ttf");
+				FontList.Add("GlitchInside","Assets/VAMFonts/glitch_inside.otf");
+				FontList.Add("GosmickSans","Assets/VAMFonts/gosmick_sans.ttf");
+				FontList.Add("HomerSimpsonRevised","Assets/VAMFonts/homer_simpson_revised.ttf");
+				FontList.Add("KionaRegular","Assets/VAMFonts/kiona_regular.ttf");
+				FontList.Add("OptimusPrinceps","Assets/VAMFonts/optimus_princeps.ttf");
+				FontList.Add("Oswald","Assets/VAMFonts/oswald.ttf");
+				FontList.Add("PlanetKosmos","Assets/VAMFonts/planet_kosmos.ttf");
+				FontList.Add("Poppins","Assets/VAMFonts/poppins.ttf");
+				FontList.Add("SpaceAge","Assets/VAMFonts/space_age.ttf");
 				
 				// Fonts Assets, i'm creating Arial by default because this font rocks for subtitles, and if the bundle fails, we have at least one font
 				FontAssets = new Dictionary<string, Font>();
@@ -227,11 +234,11 @@ namespace VAMOverlaysPlugin
 				CreateSlider(SubtitlesSize, true);
 				
 				SubtitlesFontChoice = new JSONStorableStringChooser("Font", fontChoices, "Arial", "Font", SubtitlesFontCallback);
-				UIDynamicPopup SFCUdp = CreatePopup(SubtitlesFontChoice, true);
+				UIDynamicPopup SFCUdp = CreateScrollablePopup(SubtitlesFontChoice, true);
 				SFCUdp.labelWidth = 150f;
 				
 				SubtitleAlignmentChoice = new JSONStorableStringChooser("Text alignment", alignmentChoices, "Bottom", "Text alignment", SubtitlesAlignementCallback);
-				UIDynamicPopup SACUdp = CreatePopup(SubtitleAlignmentChoice, true);
+				UIDynamicPopup SACUdp = CreateScrollablePopup(SubtitleAlignmentChoice, true);
 				SACUdp.labelWidth = 300f;
 				
 				// *****************************
