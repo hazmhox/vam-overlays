@@ -1,206 +1,218 @@
+// #define DEBUG
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using SimpleJSON;
-using System.Linq;
-using System.IO;
+using System.Diagnostics;
 using MeshVR;
 using Request = MeshVR.AssetLoader.AssetBundleFromFileRequest;
 
-// VAMOVERLAYS v1.0
-//
+// VAMOverlays
 // Overlays system to display fades, titles and subtitles
-
-// TESTS Spacedog
-//CanvasRecTr.localPosition = new Vector3(0,0,0.8f);
-//Text size : 38.0f
-//SubtitlesRecTr.offsetMin = new Vector2(600.0f, 100.0f);
-//SubtitlesRecTr.offsetMax = new Vector2(-600.0f, 100.0f);
 
 namespace VAMOverlaysPlugin
 {
-    public class VAMOverlays : MVRScript
-    {
-        public static string PLUGIN_PATH;
-        public static string ASSETS_PATH;
-        public static string FONTS_BUNDLE_PATH;
-		
-		// Game Objects and components
-		GameObject VAMOverlaysGO;
-		Canvas OverlaysCanvas;
-		CanvasScaler OverlaysCanvasScaler;
-		
-		GameObject FadeImgGO;
-		Image FadeImg;
-		
-		GameObject SubtitlesTxtGO;
-		Text SubtitlesTxt;
-		Shadow SubtitlesTxtShadow;
+	public class VAMOverlays : MVRScript
+	{
+		private string _pluginPath;
+		private string _assetsPath;
+		private string _fontsBundlePath;
 
-		public JSONStorableBool FadeAtStart;
-		public JSONStorableColor FadeColor;
-		public JSONStorableFloat FadeInTime;
-		public JSONStorableFloat FadeOutTime;
-		
-		public JSONStorableColor SubtitlesColor;
-		public JSONStorableString SubtitlesText;
-		public JSONStorableFloat SubtitlesSize;
-		public JSONStorableStringChooser SubtitlesFontChoice;
-		public JSONStorableStringChooser SubtitleAlignmentChoice;
-		
-		public JSONStorableAction triggerFadeIn;
-		public JSONStorableAction triggerFadeOut;
-		public JSONStorableColor setFadeColor;
-		public JSONStorableFloat setFadeInTime;
-		public JSONStorableFloat setFadeOutTime;
-		
-		public JSONStorableColor setSubtitlesColor;
-		public JSONStorableFloat setSubtitlesSize;
-		public JSONStorableStringChooser setSubtitlesFont;
-		public JSONStorableStringChooser setSubtitlesAlignment;
-		public JSONStorableAction showSubtitles5secs;
-		public JSONStorableAction showSubtitlesPermanent;
-		public JSONStorableAction hideSubtitles;
-		
-		protected Color CurrentFadeColor;
-		protected Color CurrentSubtitlesColor;
-		protected float CurrentFadeInTime;
-		protected float CurrentFadeOutTime;
-		
-		protected bool showDebug = false;
-		protected JSONStorableString debugArea;
-		
-		protected bool isPlayerInVr = false;
-		
-		protected List<string> SubtitlesQuotes;
-		protected List<string> alignmentChoices;
-		protected List<string> fontChoices;
-		
-		protected Dictionary<string, string> FontList;
-		protected Dictionary<string, Font> FontAssets;
-		
+		// Game Objects and components
+		private GameObject _vamOverlaysGO;
+		private Canvas _overlaysCanvas;
+
+		private GameObject _fadeImgGO;
+		private Image _fadeImg;
+
+		private GameObject _subtitlesTxtGO;
+		private Text _subtitlesTxt;
+		private Shadow _subtitlesTxtShadow;
+
+		private JSONStorableBool _fadeAtStart;
+		private JSONStorableColor _fadeColor;
+		private JSONStorableFloat _fadeInTime;
+		private JSONStorableFloat _fadeOutTime;
+
+		private JSONStorableColor _subtitlesColor;
+		private JSONStorableString _subtitlesText;
+		private JSONStorableFloat _subtitlesSize;
+		private JSONStorableStringChooser _subtitlesFontChoice;
+		private JSONStorableStringChooser _subtitleAlignmentChoice;
+
+		private JSONStorableAction _triggerFadeIn;
+		private JSONStorableAction _triggerFadeOut;
+		private JSONStorableColor _setFadeColor;
+		private JSONStorableFloat _setFadeInTime;
+		private JSONStorableFloat _setFadeOutTime;
+
+		private JSONStorableColor _setSubtitlesColor;
+		private JSONStorableFloat _setSubtitlesSize;
+		private JSONStorableStringChooser _setSubtitlesFont;
+		private JSONStorableStringChooser _setSubtitlesAlignment;
+		private JSONStorableAction _showSubtitles5Secs;
+		private JSONStorableAction _showSubtitlesPermanent;
+		private JSONStorableAction _hideSubtitles;
+
+		private Color _currentFadeColor;
+		private Color _currentSubtitlesColor;
+		private float _currentFadeInTime;
+		private float _currentFadeOutTime;
+
+		private JSONStorableString _debugArea;
+
+		private bool _isPlayerInVr;
+
+		private List<string> _subtitlesQuotes;
+		private List<string> _alignmentChoices;
+		private List<string> _fontChoices;
+
+		private Dictionary<string, string> _fontList;
+		private Dictionary<string, Font> _fontAssets;
+
 		public override void Init()
-        {			 
-            try
-            {
-                if (containingAtom.type != "Empty")
-                {
-                    SuperController.LogError("Please add VAMOverlays on an Empty Atom");
-                    return;
-                }
-				
-				PLUGIN_PATH = GetPluginPath(this);
-				ASSETS_PATH = PLUGIN_PATH + "/assets";
-				FONTS_BUNDLE_PATH = ASSETS_PATH + "/fonts.fontbundle";
-				
+		{
+			try
+			{
+				if (containingAtom.type != "Empty")
+				{
+					SuperController.LogError("Please add VAMOverlays on an Empty Atom");
+					return;
+				}
+
+				_pluginPath = GetPluginPath(this);
+				_assetsPath = _pluginPath + "/assets";
+				_fontsBundlePath = _assetsPath + "/fonts.fontbundle";
+
 				// LISTS AND DICT
 				// Random quotes
-				SubtitlesQuotes = new List<string>();
-				SubtitlesQuotes.Add("<b>Ripley:</b> You better just start dealing with it, Hudson! Listen to me!\nHudson, just deal with it, because we need you and I'm sick of your bullshit.");
-				SubtitlesQuotes.Add("<b>Apone:</b> All right, sweethearts, what are you waiting for? Breakfast in bed?\nIt's another glorious day in the Corps.");
-				SubtitlesQuotes.Add("<b>Hudson:</b> We're on the express elevator to hell, going down!");
-				SubtitlesQuotes.Add("<b>Vasquez:</b> You always were an asshole, Gorman.");
-				SubtitlesQuotes.Add("<b>Drake:</b> They ain't pay us enough for this, man.\n<b>Dietrich:</b> Not enough to wake up every day to your face, Drake.");
-				SubtitlesQuotes.Add("<b>Vasquez:</b> How many combat drops?\n<b>Gorman:</b> Uh, two. Including this one.");
-				SubtitlesQuotes.Add("<b>Hicks:</b> <i>**pulls out a shotgun**</i> I like to keep this handy. For close encounters.\n<b>Frost:</b> Yeah, I heard that.");
-				
+				_subtitlesQuotes = new List<string>
+				{
+					// ReSharper disable StringLiteralTypo
+					"<b>Ripley:</b> You better just start dealing with it, Hudson! Listen to me!\nHudson, just deal with it, because we need you and I'm sick of your bullshit.",
+					"<b>Apone:</b> All right, sweethearts, what are you waiting for? Breakfast in bed?\nIt's another glorious day in the Corps.",
+					"<b>Hudson:</b> We're on the express elevator to hell, going down!",
+					"<b>Vasquez:</b> You always were an asshole, Gorman.",
+					"<b>Drake:</b> They ain't pay us enough for this, man.\n<b>Dietrich:</b> Not enough to wake up every day to your face, Drake.",
+					"<b>Vasquez:</b> How many combat drops?\n<b>Gorman:</b> Uh, two. Including this one.",
+					"<b>Hicks:</b> <i>**pulls out a shotgun**</i> I like to keep this handy. For close encounters.\n<b>Frost:</b> Yeah, I heard that."
+					// ReSharper restore StringLiteralTypo
+				};
+
 				// Alignments
-				alignmentChoices = new List<string>();
-				alignmentChoices.Add("Bottom");
-				alignmentChoices.Add("Center");
-				alignmentChoices.Add("Top");
-				
+				_alignmentChoices = new List<string>
+				{
+					"Bottom",
+					"Center",
+					"Top"
+				};
+
 				// Fonts paths in the bundle. I'm lazy, and I don't think I do have benefits from loading a json file just for simple paths
-				FontList = new Dictionary<string, string>();
-				FontList.Add("Amalia","Assets/VAMFonts/amalia.ttf");
-				FontList.Add("AnimeAceBB","Assets/VAMFonts/animeacebb_reg.ttf");
-				FontList.Add("AsteraV2","Assets/VAMFonts/astera_v2.ttf");
-				FontList.Add("BebasRegular","Assets/VAMFonts/bebas_regular.ttf");
-				FontList.Add("BirdsOfParadise","Assets/VAMFonts/birds_of_paradise.ttf");
-				FontList.Add("GlitchInside","Assets/VAMFonts/glitch_inside.otf");
-				FontList.Add("GosmickSans","Assets/VAMFonts/gosmick_sans.ttf");
-				FontList.Add("HomerSimpsonRevised","Assets/VAMFonts/homer_simpson_revised.ttf");
-				FontList.Add("KionaRegular","Assets/VAMFonts/kiona_regular.ttf");
-				FontList.Add("OptimusPrinceps","Assets/VAMFonts/optimus_princeps.ttf");
-				FontList.Add("Oswald","Assets/VAMFonts/oswald.ttf");
-				FontList.Add("PlanetKosmos","Assets/VAMFonts/planet_kosmos.ttf");
-				FontList.Add("Poppins","Assets/VAMFonts/poppins.ttf");
-				FontList.Add("SpaceAge","Assets/VAMFonts/space_age.ttf");
-				
+				_fontList = new Dictionary<string, string>
+				{
+					// ReSharper disable StringLiteralTypo
+					{ "Amalia", "Assets/VAMFonts/amalia.ttf" },
+					{ "AnimeAceBB", "Assets/VAMFonts/animeacebb_reg.ttf" },
+					{ "AsteraV2", "Assets/VAMFonts/astera_v2.ttf" },
+					{ "BebasRegular", "Assets/VAMFonts/bebas_regular.ttf" },
+					{ "BirdsOfParadise", "Assets/VAMFonts/birds_of_paradise.ttf" },
+					{ "GlitchInside", "Assets/VAMFonts/glitch_inside.otf" },
+					{ "GosmickSans", "Assets/VAMFonts/gosmick_sans.ttf" },
+					{ "HomerSimpsonRevised", "Assets/VAMFonts/homer_simpson_revised.ttf" },
+					{ "KionaRegular", "Assets/VAMFonts/kiona_regular.ttf" },
+					{ "OptimusPrinceps", "Assets/VAMFonts/optimus_princeps.ttf" },
+					{ "Oswald", "Assets/VAMFonts/oswald.ttf" },
+					{ "PlanetKosmos", "Assets/VAMFonts/planet_kosmos.ttf" },
+					{ "Poppins", "Assets/VAMFonts/poppins.ttf" },
+					{ "SpaceAge", "Assets/VAMFonts/space_age.ttf" }
+					// ReSharper restore StringLiteralTypo
+				};
+
 				// Fonts Assets, i'm creating Arial by default because this font rocks for subtitles, and if the bundle fails, we have at least one font
-				FontAssets = new Dictionary<string, Font>();
-				FontAssets.Add("Arial", Resources.GetBuiltinResource(typeof(Font), "Arial.ttf") as Font);
-				
+				_fontAssets = new Dictionary<string, Font>
+				{
+					["Arial"] = (Font)Resources.GetBuiltinResource(typeof(Font), "Arial.ttf")
+				};
+
 				// Creating font choices based on the dict
-				fontChoices = new List<string>();
-				fontChoices.Add("Arial"); // Adding Arial by default
-				foreach( KeyValuePair<string, string> fontKvp in FontList )
+				_fontChoices = new List<string>
+				{
+					"Arial" // Adding Arial by default
+				};
+				foreach (var fontKvp in _fontList)
 				{
 					// Kinda hacky, because I cannot find a way to update a popup after creating it
 					// I'm gonna assume that there is never gonna be any problem to load the bundle :x
-					fontChoices.Add(fontKvp.Key);
+					_fontChoices.Add(fontKvp.Key);
 				}
-				
+
 				// Loading the bundle for the current selected voice
-				Request request = new AssetLoader.AssetBundleFromFileRequest {path = FONTS_BUNDLE_PATH, callback = OnFontsBundleLoaded};
+				var request = new AssetLoader.AssetBundleFromFileRequest { path = _fontsBundlePath, callback = OnFontsBundleLoaded };
 				AssetLoader.QueueLoadAssetBundleFromFile(request);
-				
+
 				// **************************************************
 				// ** LEFT : Fade properties
 				// **************************************************
-				
+
 				// Debugging
-				if( showDebug == true ) {
-					debugArea = new JSONStorableString("Debug","");
-					UIDynamic debugAreaField = CreateTextField(debugArea, false);
-					debugAreaField.height = 150.0f;
-				}
-				
+#if(DEBUG)
+				_debugArea = new JSONStorableString("Debug", "");
+				var debugAreaField = CreateTextField(_debugArea, false);
+				debugAreaField.height = 150.0f;
+#endif
+
 				// Title fading
-				JSONStorableString fadeTitle = new JSONStorableString("Help","<color=#000><size=30><b>Fading settings</b></size></color>\nChange the appearance and behavior of the default fade");
-				UIDynamic fadeTitlefield = CreateTextField(fadeTitle, false);
-				fadeTitlefield.height = 50.0f;
-				
+				var fadeTitle = new JSONStorableString("Help",
+					"<color=#000><size=30><b>Fading settings</b></size></color>\nChange the appearance and behavior of the default fade");
+				var fadeTitleField = CreateTextField(fadeTitle, false);
+				fadeTitleField.height = 50.0f;
+
 				// Color picker
-				HSVColor hsvcFA = HSVColorPicker.RGBToHSV(0f, 0f, 0f);
-				FadeColor = new JSONStorableColor("Fade Color", hsvcFA, FadeColorCallback);
-				CreateColorPicker(FadeColor);
-				
+				var hsvcFa = HSVColorPicker.RGBToHSV(0f, 0f, 0f);
+				_fadeColor = new JSONStorableColor("Fade Color", hsvcFa, FadeColorCallback);
+				CreateColorPicker(_fadeColor);
+
 				// Fade at start enabled ?
-				FadeAtStart = new JSONStorableBool("Fade at start", false);
-				FadeAtStart.storeType = JSONStorableParam.StoreType.Full;
-				CreateToggle(FadeAtStart, false);
-							
+				_fadeAtStart = new JSONStorableBool("Fade at start", false)
+				{
+					storeType = JSONStorableParam.StoreType.Full
+				};
+				CreateToggle(_fadeAtStart, false);
+
 				// Fade in time
-				FadeInTime = new JSONStorableFloat("Fade in time", 5.0f, 0f, 120.0f, true, true);
-				FadeInTime.storeType = JSONStorableParam.StoreType.Full;
-				CreateSlider(FadeInTime, false);			
-						
+				_fadeInTime = new JSONStorableFloat("Fade in time", 5.0f, 0f, 120.0f, true, true)
+				{
+					storeType = JSONStorableParam.StoreType.Full
+				};
+				CreateSlider(_fadeInTime, false);
+
 				// Fade out time
-				FadeOutTime = new JSONStorableFloat("Fade out time", 5.0f, 0f, 120.0f, true, true);
-				FadeOutTime.storeType = JSONStorableParam.StoreType.Full;
-				CreateSlider(FadeOutTime, false);
+				_fadeOutTime = new JSONStorableFloat("Fade out time", 5.0f, 0f, 120.0f, true, true)
+				{
+					storeType = JSONStorableParam.StoreType.Full
+				};
+				CreateSlider(_fadeOutTime, false);
 
 				// Test Fade in
-				UIDynamicButton FadeInTestButton = CreateButton("Test Fade In");
-				if (FadeInTestButton != null) {
-					FadeInTestButton.button.onClick.AddListener(TestFadeIn);
+				var fadeInTestButton = CreateButton("Test Fade In");
+				if (fadeInTestButton != null)
+				{
+					fadeInTestButton.button.onClick.AddListener(TestFadeIn);
 				}
-				
+
 				// Test fade out
-				UIDynamicButton FadeOutTestButton = CreateButton("Test Fade Out");
-				if (FadeOutTestButton != null) {
-					FadeOutTestButton.button.onClick.AddListener(TestFadeOut);
+				var fadeOutTestButton = CreateButton("Test Fade Out");
+				if (fadeOutTestButton != null)
+				{
+					fadeOutTestButton.button.onClick.AddListener(TestFadeOut);
 				}
-				
+
 				// *****************************
 				// HELP
 				// *****************************
-				JSONStorableString helpText = new JSONStorableString("Help",
-					"<color=#000><size=35><b>Fading help</b></size></color>\n\n" + 
+				var helpText = new JSONStorableString("Help",
+					"<color=#000><size=35><b>Fading help</b></size></color>\n\n" +
 					"<color=#333>" +
 					"<b>Fade color :</b> The color of the fade effect\n\n" +
 					"<b>Fade at start :</b> If the fade should cover the screen when the scene has finished loading\nIf you don't control the fade in afterwards, the scene will stay black (or the color you have selected) and the player will only be able to see the menus.\n\n" +
@@ -208,448 +220,480 @@ namespace VAMOverlaysPlugin
 					"<b>Fade out time :</b> How much time it takes to fade from the color being completely transparent to opaque.\n\n" +
 					"</color>"
 				);
-				UIDynamic helpTextfield = CreateTextField(helpText, false);
+				var helpTextfield = CreateTextField(helpText, false);
 				helpTextfield.height = 800.0f;
-				
+
 				// **************************************************
 				// ** RIGHT : Subtitles properties
 				// **************************************************
-				SubtitlesText = new JSONStorableString("Set subtitles text", "", SubtitlesValueCallback){ isStorable = false };
-							
+				_subtitlesText = new JSONStorableString("Set subtitles text", "", SubtitlesValueCallback) { isStorable = false };
+
 				// Title subtitles
-				JSONStorableString subtitlesTitle = new JSONStorableString("Help","<color=#000><size=30><b>Subtitles settings</b></size></color>\nChange the appearance and behavior of the default subtitles");
-				UIDynamic subtitlesTitlefield = CreateTextField(subtitlesTitle, true);
-				subtitlesTitlefield.height = 20.0f;
-							
+				var subtitlesTitle = new JSONStorableString("Help", "<color=#000><size=30><b>Subtitles settings</b></size></color>\nChange the appearance and behavior of the default subtitles");
+				var subtitlesTitleField = CreateTextField(subtitlesTitle, true);
+				subtitlesTitleField.height = 20.0f;
+
 				// Color picker
-				HSVColor hsvcST = HSVColorPicker.RGBToHSV(1f, 1f, 1f);
-				SubtitlesColor = new JSONStorableColor("Subtitles Color", hsvcST, SubtitlesColorCallback);
-				CreateColorPicker(SubtitlesColor, true);
-				
+				var hsvcSt = HSVColorPicker.RGBToHSV(1f, 1f, 1f);
+				_subtitlesColor = new JSONStorableColor("Subtitles Color", hsvcSt, SubtitlesColorCallback);
+				CreateColorPicker(_subtitlesColor, true);
+
 				// Preview
-				JSONStorableBool previewSubtitles = new JSONStorableBool("Preview subtitles", false, PreviewSubtitlesCallback);
+				var previewSubtitles = new JSONStorableBool("Preview subtitles", false, PreviewSubtitlesCallback);
 				CreateToggle(previewSubtitles, true);
-				
-				SubtitlesSize = new JSONStorableFloat("Subtitles size", 0, (val) => { SubtitlesSize.valNoCallback = Mathf.Round(val); SubtitlesSizeCallback( SubtitlesSize.val ); }, 18.0f, 100.0f);
-				CreateSlider(SubtitlesSize, true);
-				
-				SubtitlesFontChoice = new JSONStorableStringChooser("Font", fontChoices, "Arial", "Font", SubtitlesFontCallback);
-				UIDynamicPopup SFCUdp = CreateScrollablePopup(SubtitlesFontChoice, true);
-				SFCUdp.labelWidth = 150f;
-				
-				SubtitleAlignmentChoice = new JSONStorableStringChooser("Text alignment", alignmentChoices, "Bottom", "Text alignment", SubtitlesAlignementCallback);
-				UIDynamicPopup SACUdp = CreateScrollablePopup(SubtitleAlignmentChoice, true);
-				SACUdp.labelWidth = 300f;
-				
+
+				_subtitlesSize = new JSONStorableFloat("Subtitles size", 0, (val) =>
+				{
+					_subtitlesSize.valNoCallback = Mathf.Round(val);
+					SubtitlesSizeCallback(_subtitlesSize.val);
+				}, 18.0f, 100.0f);
+				CreateSlider(_subtitlesSize, true);
+
+				_subtitlesFontChoice = new JSONStorableStringChooser("Font", _fontChoices, "Arial", "Font", SubtitlesFontCallback);
+				var sfcUdp = CreateScrollablePopup(_subtitlesFontChoice, true);
+				sfcUdp.labelWidth = 150f;
+
+				_subtitleAlignmentChoice = new JSONStorableStringChooser("Text alignment", _alignmentChoices, "Bottom", "Text alignment", SubtitlesAlignmentCallback);
+				var sacUdp = CreateScrollablePopup(_subtitleAlignmentChoice, true);
+				sacUdp.labelWidth = 300f;
+
 				// *****************************
 				// Actions to allow scripting
-				// *****************************				
-				triggerFadeIn = new JSONStorableAction("Start Fade In", () => { FadeIn(); });
-				triggerFadeOut = new JSONStorableAction("Start Fade Out", () =>	{ FadeOut(); });
-				setFadeColor = new JSONStorableColor("Change fade color", hsvcFA, FadeColorCallback){ isStorable = false };
-				setFadeInTime = new JSONStorableFloat("Change fade in time", 5, setFadeInTimeCallback, 0f, 120.0f ){ isStorable = false };
-				setFadeOutTime = new JSONStorableFloat("Change fade out time", 5, setFadeOutTimeCallback, 0f, 120.0f ){ isStorable = false };
-				setSubtitlesColor = new JSONStorableColor("Change subtitles color", hsvcST, SubtitlesColorCallback ){ isStorable = false };
-				setSubtitlesSize = new JSONStorableFloat("Change subtitles size", 18, (val) => { setSubtitlesSize.valNoCallback = Mathf.Round(val); SubtitlesSizeCallback( setSubtitlesSize.val ); }, 18.0f, 100.0f ){ isStorable = false };
-				setSubtitlesFont = new JSONStorableStringChooser("Change subtitles font", fontChoices, "Arial", "Change subtitles font", choice => SubtitlesFontCallback(choice.val)){ isStorable = false };
-				setSubtitlesAlignment = new JSONStorableStringChooser("Change subtitles alignment", alignmentChoices, "Bottom", "Change subtitles alignment", choice => SubtitlesAlignementCallback(choice.val)){ isStorable = false };
-				showSubtitles5secs = new JSONStorableAction("Show subtitles for 5secs", () => { doShowSubtitles5secs(); });
-				showSubtitlesPermanent = new JSONStorableAction("Show subtitles permanently", () => { doShowSubtitlesPermanent(); });
-				hideSubtitles = new JSONStorableAction("Hide subtitles", () => { doHideSubtitles(); });
-				
+				// *****************************
+				_triggerFadeIn = new JSONStorableAction("Start Fade In", FadeIn);
+				_triggerFadeOut = new JSONStorableAction("Start Fade Out", FadeOut);
+				_setFadeColor = new JSONStorableColor("Change fade color", hsvcFa, FadeColorCallback) { isStorable = false };
+				_setFadeInTime = new JSONStorableFloat("Change fade in time", 5, SetFadeInTimeCallback, 0f, 120.0f) { isStorable = false };
+				_setFadeOutTime = new JSONStorableFloat("Change fade out time", 5, SetFadeOutTimeCallback, 0f, 120.0f) { isStorable = false };
+				_setSubtitlesColor = new JSONStorableColor("Change subtitles color", hsvcSt, SubtitlesColorCallback) { isStorable = false };
+				_setSubtitlesSize = new JSONStorableFloat("Change subtitles size", 18, (val) =>
+				{
+					_setSubtitlesSize.valNoCallback = Mathf.Round(val);
+					SubtitlesSizeCallback(_setSubtitlesSize.val);
+				}, 18.0f, 100.0f) { isStorable = false };
+				_setSubtitlesFont = new JSONStorableStringChooser("Change subtitles font", _fontChoices, "Arial", "Change subtitles font",
+						choice => SubtitlesFontCallback(choice.val))
+					{ isStorable = false };
+				_setSubtitlesAlignment = new JSONStorableStringChooser("Change subtitles alignment", _alignmentChoices, "Bottom", "Change subtitles alignment",
+					choice => SubtitlesAlignmentCallback(choice.val)) { isStorable = false };
+				_showSubtitles5Secs = new JSONStorableAction("Show subtitles for 5secs", DoShowSubtitles5Secs);
+				_showSubtitlesPermanent = new JSONStorableAction("Show subtitles permanently", DoShowSubtitlesPermanent);
+				_hideSubtitles = new JSONStorableAction("Hide subtitles", DoHideSubtitles);
+
 				// Fake actions to split things the user can use safely
-				JSONStorableAction fakeFuncUseBelow = new JSONStorableAction("- - - - Use these functions below ↓ - - - - -", () => {});
-				JSONStorableAction fakeFuncDoNotUseBelow = new JSONStorableAction("- - - - Avoid using these functions below ↓ - - - - -", () => {});
-				
+				var fakeFuncUseBelow = new JSONStorableAction("- - - - Use these functions below ↓ - - - - -", () => { });
+				var fakeFuncDoNotUseBelow = new JSONStorableAction("- - - - Avoid using these functions below ↓ - - - - -", () => { });
+
 				// **********************************************************************************************************************************
 				// Registering variables, a bit strange to disconnect them from the initial creation, but allows me to order them in the action list
 				// **********************************************************************************************************************************
 				RegisterAction(fakeFuncUseBelow);
-				RegisterAction(triggerFadeIn);
-				RegisterAction(triggerFadeOut);
-				RegisterColor(setFadeColor);
-				RegisterFloat(setFadeInTime);
-				RegisterFloat(setFadeOutTime);
-				
-				RegisterString(SubtitlesText);
-				RegisterColor(setSubtitlesColor);
-				RegisterFloat(setSubtitlesSize);
-				RegisterStringChooser(setSubtitlesFont);
-				RegisterStringChooser(setSubtitlesAlignment);
-				RegisterAction(showSubtitles5secs);
-				RegisterAction(showSubtitlesPermanent);
-				RegisterAction(hideSubtitles);
-				
+				RegisterAction(_triggerFadeIn);
+				RegisterAction(_triggerFadeOut);
+				RegisterColor(_setFadeColor);
+				RegisterFloat(_setFadeInTime);
+				RegisterFloat(_setFadeOutTime);
+
+				RegisterString(_subtitlesText);
+				RegisterColor(_setSubtitlesColor);
+				RegisterFloat(_setSubtitlesSize);
+				RegisterStringChooser(_setSubtitlesFont);
+				RegisterStringChooser(_setSubtitlesAlignment);
+				RegisterAction(_showSubtitles5Secs);
+				RegisterAction(_showSubtitlesPermanent);
+				RegisterAction(_hideSubtitles);
+
 				// JSONStorable Variables, the user should not use these without changing the save
 				RegisterAction(fakeFuncDoNotUseBelow);
-				RegisterColor(FadeColor);
-				RegisterBool(FadeAtStart);
-				RegisterFloat(FadeInTime);
-				RegisterFloat(FadeOutTime);
-				
-				RegisterColor(SubtitlesColor);
-				RegisterFloat(SubtitlesSize);
-				RegisterStringChooser(SubtitlesFontChoice);
-				RegisterStringChooser(SubtitleAlignmentChoice);
-				
+				RegisterColor(_fadeColor);
+				RegisterBool(_fadeAtStart);
+				RegisterFloat(_fadeInTime);
+				RegisterFloat(_fadeOutTime);
+
+				RegisterColor(_subtitlesColor);
+				RegisterFloat(_subtitlesSize);
+				RegisterStringChooser(_subtitlesFontChoice);
+				RegisterStringChooser(_subtitleAlignmentChoice);
+
 				// Settings "current" variables
-				CurrentFadeColor = FadeColor.colorPicker.currentColor;
-				CurrentSubtitlesColor = SubtitlesColor.colorPicker.currentColor;
-				CurrentFadeInTime = FadeInTime.val;
-				CurrentFadeOutTime = FadeOutTime.val;
-				
+				_currentFadeColor = _fadeColor.colorPicker.currentColor;
+				_currentSubtitlesColor = _subtitlesColor.colorPicker.currentColor;
+				_currentFadeInTime = _fadeInTime.val;
+				_currentFadeOutTime = _fadeOutTime.val;
+
 				// Initializing my VR flag (maybe at some point I'll need to make some different checks, so I'm making that in advance)
-				isPlayerInVr = XRDevice.isPresent;
-	
+				_isPlayerInVr = XRDevice.isPresent;
+
 			}
-            catch(Exception e)
-            {
-                SuperController.LogError("VAMOverlays - Exception caught: " + e);
-            }
+			catch (Exception e)
+			{
+				SuperController.LogError("VAMOverlays - Exception caught: " + e);
+			}
 		}
-		
-		void Start()
-        {
+
+		private void Start()
+		{
 			try
-            {
+			{
 				InitFadeObjects();
 				// If we fade after scene load
-				if( FadeAtStart.val == true ) {
+				if (_fadeAtStart.val)
+				{
 					// Make the fade layer opaque
-					FadeImg.canvasRenderer.SetAlpha(1.0f);
+					_fadeImg.canvasRenderer.SetAlpha(1.0f);
 				}
 			}
-            catch(Exception e)
-            {
-                SuperController.LogError("VAMOverlays - Exception caught: " + e);
-            }
-        }
-		
-		void Update() {
-			updateDebugArea();
+			catch (Exception e)
+			{
+				SuperController.LogError("VAMOverlays - Exception caught: " + e);
+			}
 		}
-		
+
+		private void Update()
+		{
+			UpdateDebugArea();
+		}
+
 		// **************************
 		// Functions
 		// **************************
-		
-		protected void updateDebugArea() {
-			if( showDebug == true ) {
-				debugArea.val = "<b>DEBUG</b>\n"
-				+ "VR enabled : " + ( isPlayerInVr == true ? "yes" : "no" ) + " \n"
-				+ "";				
-			}
+
+		[Conditional("DEBUG")]
+		private void UpdateDebugArea()
+		{
+#if(DEBUG)
+			_debugArea.val = $"<b>DEBUG</b>\nVR enabled : {(_isPlayerInVr ? "yes" : "no")} \n";
+#endif
 		}
-		
-		protected string getRandomQuote() {
+
+		private string GETRandomQuote()
+		{
 			var random = new System.Random();
-			int quoteIndex = random.Next(SubtitlesQuotes.Count);
-			return SubtitlesQuotes[quoteIndex];
+			var quoteIndex = random.Next(_subtitlesQuotes.Count);
+			return _subtitlesQuotes[quoteIndex];
 		}
-		
+
 		// Global FadeIn Function
-		protected void FadeIn() {
-			FadeImg.canvasRenderer.SetAlpha(1.0f);
-			FadeImg.CrossFadeAlpha(0.0f,CurrentFadeInTime,false);
+		private void FadeIn()
+		{
+			_fadeImg.canvasRenderer.SetAlpha(1.0f);
+			_fadeImg.CrossFadeAlpha(0.0f, _currentFadeInTime, false);
 		}
-		
+
 		// Triggers the FadeIn when you click on the test button
-		protected void TestFadeIn() {
+		private void TestFadeIn()
+		{
 			// Make the fade layer opaque
-			FadeImg.canvasRenderer.SetAlpha(1.0f);
-			FadeImg.CrossFadeAlpha(0.0f,FadeInTime.val,false);
+			_fadeImg.canvasRenderer.SetAlpha(1.0f);
+			_fadeImg.CrossFadeAlpha(0.0f, _fadeInTime.val, false);
 		}
-		
+
 		// Global FadeOut Function
-		protected void FadeOut() {
-			FadeImg.canvasRenderer.SetAlpha(0.0f);
-			FadeImg.CrossFadeAlpha(1.0f,CurrentFadeOutTime,false);
+		private void FadeOut()
+		{
+			_fadeImg.canvasRenderer.SetAlpha(0.0f);
+			_fadeImg.CrossFadeAlpha(1.0f, _currentFadeOutTime, false);
 		}
-		
+
 		// Triggers the FadeOut when you click on the test button
-		protected void TestFadeOut() {
-			FadeImg.canvasRenderer.SetAlpha(0.0f);
-			FadeImg.CrossFadeAlpha(1.0f,FadeOutTime.val,false);
-			Invoke("FadeIn", FadeOutTime.val + 5.0f);
+		private void TestFadeOut()
+		{
+			_fadeImg.canvasRenderer.SetAlpha(0.0f);
+			_fadeImg.CrossFadeAlpha(1.0f, _fadeOutTime.val, false);
+			Invoke(nameof(FadeIn), _fadeOutTime.val + 5.0f);
 		}
-		
-		protected void ChangeSubtitlesFont( string fontVal ) {
-			if( SubtitlesTxt != null ) {
-				SubtitlesTxt.font = FontAssets[fontVal];
+
+		private void ChangeSubtitlesFont(string fontVal)
+		{
+			if (_subtitlesTxt != null)
+			{
+				_subtitlesTxt.font = _fontAssets[fontVal];
 			}
 		}
-		
-		protected void ChangeSubtitlesAlignment( string alignmentVal ) {
-			if( SubtitlesTxt != null ) {
-				if( alignmentVal == "Center" ) {
-					SubtitlesTxt.alignment = TextAnchor.MiddleCenter;
-				} else if( alignmentVal == "Top" ) {
-					SubtitlesTxt.alignment = TextAnchor.UpperCenter;
-				} else {					
-					SubtitlesTxt.alignment = TextAnchor.LowerCenter;
+
+		private void ChangeSubtitlesAlignment(string alignmentVal)
+		{
+			if (_subtitlesTxt != null)
+			{
+				if (alignmentVal == "Center")
+				{
+					_subtitlesTxt.alignment = TextAnchor.MiddleCenter;
+				}
+				else if (alignmentVal == "Top")
+				{
+					_subtitlesTxt.alignment = TextAnchor.UpperCenter;
+				}
+				else
+				{
+					_subtitlesTxt.alignment = TextAnchor.LowerCenter;
 				}
 			}
 		}
-		
-		protected int getFontSize( float size ) {
-			float finalSize = size * 2.34f; // original value * tweak for updates (to avoid breaking old scenes)
-			if( isPlayerInVr ) {
+
+		private int GETFontSize(float size)
+		{
+			var finalSize = size * 2.34f; // original value * tweak for updates (to avoid breaking old scenes)
+			if (_isPlayerInVr)
+			{
 				finalSize = size * 5f; // VR multiplier - was 2.5f
 			}
+
 			return (int)Math.Round(finalSize);
 		}
-		
-		protected void InitFadeObjects() {
+
+		private void InitFadeObjects()
+		{
 			try
-            {
+			{
 				// ******************************
 				// CREATION OF THE ELEMENTS
 				// ******************************
 				// Creation of the main Canvas
-				VAMOverlaysGO = new GameObject();
-				VAMOverlaysGO.name = "FadeCanvas";
-				VAMOverlaysGO.transform.SetParent(Camera.main.transform);
-				VAMOverlaysGO.transform.localRotation = Quaternion.identity;
-				VAMOverlaysGO.transform.localPosition = new Vector3(0, 0, 0);
-				VAMOverlaysGO.layer = 5;
-				OverlaysCanvas = VAMOverlaysGO.AddComponent<Canvas>();
-				OverlaysCanvas.renderMode = RenderMode.WorldSpace;
-				OverlaysCanvas.sortingOrder = 2;
-				OverlaysCanvas.worldCamera = Camera.main;
-				OverlaysCanvas.planeDistance = 10.0f;
-				OverlaysCanvasScaler = VAMOverlaysGO.AddComponent<CanvasScaler>();
+				_vamOverlaysGO = new GameObject
+				{
+					name = "FadeCanvas"
+				};
+				_vamOverlaysGO.transform.SetParent(Camera.main.transform);
+				_vamOverlaysGO.transform.localRotation = Quaternion.identity;
+				_vamOverlaysGO.transform.localPosition = new Vector3(0, 0, 0);
+				_vamOverlaysGO.layer = 5;
+				_overlaysCanvas = _vamOverlaysGO.AddComponent<Canvas>();
+				_overlaysCanvas.renderMode = RenderMode.WorldSpace;
+				_overlaysCanvas.sortingOrder = 2;
+				_overlaysCanvas.worldCamera = Camera.main;
+				_overlaysCanvas.planeDistance = 10.0f;
+				_vamOverlaysGO.AddComponent<CanvasScaler>();
 
 				// Configuration of the RectTransform of the Canvas
-				RectTransform CanvasRecTr = VAMOverlaysGO.GetComponent<RectTransform>();
-				CanvasRecTr.sizeDelta = new Vector2(2560f, 1440f);
-				CanvasRecTr.localPosition = new Vector3(0,0,0.8f); // wav 0.3f initially
-				CanvasRecTr.localScale = new Vector3(0.00024f, 0.00024f, 1.0f);
+				var canvasRecTr = _vamOverlaysGO.GetComponent<RectTransform>();
+				canvasRecTr.sizeDelta = new Vector2(2560f, 1440f);
+				canvasRecTr.localPosition = new Vector3(0, 0, 0.8f); // wav 0.3f initially
+				canvasRecTr.localScale = new Vector3(0.00024f, 0.00024f, 1.0f);
 
 				// Creation of the structure for the fade
-				FadeImgGO = new GameObject("FadeImage");
-				FadeImgGO.layer = 5;
-				FadeImgGO.transform.SetParent(VAMOverlaysGO.transform);
+				_fadeImgGO = new GameObject("FadeImage")
+				{
+					layer = 5
+				};
+				_fadeImgGO.transform.SetParent(_vamOverlaysGO.transform);
 
-				FadeImgGO.AddComponent<CanvasRenderer>();
-				FadeImg = FadeImgGO.AddComponent<Image>();
-				FadeImg.raycastTarget = false;
-				FadeImg.canvasRenderer.SetAlpha(0.0f);
-				FadeImg.color = CurrentFadeColor;
+				_fadeImgGO.AddComponent<CanvasRenderer>();
+				_fadeImg = _fadeImgGO.AddComponent<Image>();
+				_fadeImg.raycastTarget = false;
+				_fadeImg.canvasRenderer.SetAlpha(0.0f);
+				_fadeImg.color = _currentFadeColor;
 
 				// Configuration of the RectTransform of the fade
-				RectTransform FadeImgRecTr = FadeImg.GetComponent<RectTransform>();
+				var fadeImgRecTr = _fadeImg.GetComponent<RectTransform>();
 
-				FadeImgRecTr.localPosition = new Vector3(0, 0, 0);
-				FadeImgRecTr.localScale = new Vector3(1, 1, 1);
-				FadeImgRecTr.localRotation = Quaternion.identity;
-				FadeImgRecTr.anchorMin = new Vector2(0, 0);
-				FadeImgRecTr.anchorMax = new Vector2(1, 1);
-				FadeImgRecTr.offsetMin = new Vector2(-4000.0f, -4000.0f);
-				FadeImgRecTr.offsetMax = new Vector2(4000.0f, 4000.0f);
+				fadeImgRecTr.localPosition = new Vector3(0, 0, 0);
+				fadeImgRecTr.localScale = new Vector3(1, 1, 1);
+				fadeImgRecTr.localRotation = Quaternion.identity;
+				fadeImgRecTr.anchorMin = new Vector2(0, 0);
+				fadeImgRecTr.anchorMax = new Vector2(1, 1);
+				fadeImgRecTr.offsetMin = new Vector2(-4000.0f, -4000.0f);
+				fadeImgRecTr.offsetMax = new Vector2(4000.0f, 4000.0f);
 
 				// Creation of the structure for subtitles
-				SubtitlesTxtGO = new GameObject("SubtitlesText");
-				SubtitlesTxtGO.layer = 5;
-				SubtitlesTxtGO.transform.SetParent(VAMOverlaysGO.transform);
+				_subtitlesTxtGO = new GameObject("SubtitlesText")
+				{
+					layer = 5
+				};
+				_subtitlesTxtGO.transform.SetParent(_vamOverlaysGO.transform);
 
-				SubtitlesTxtGO.AddComponent<CanvasRenderer>();
-				SubtitlesTxt = SubtitlesTxtGO.AddComponent<Text>();
-				SubtitlesTxtShadow = SubtitlesTxtGO.AddComponent<Shadow>();
+				_subtitlesTxtGO.AddComponent<CanvasRenderer>();
+				_subtitlesTxt = _subtitlesTxtGO.AddComponent<Text>();
+				_subtitlesTxtShadow = _subtitlesTxtGO.AddComponent<Shadow>();
 
 				// Defining text properties
-				SubtitlesTxt.raycastTarget = false;
-				SubtitlesTxt.canvasRenderer.SetAlpha(0.0f);
-				SubtitlesTxt.color = CurrentSubtitlesColor;
-				SubtitlesTxt.text = getRandomQuote();
-				
-				SubtitlesTxt.font = FontAssets["Arial"];
-				
-				SubtitlesTxt.fontSize = getFontSize( 18 ); // Will deal automatically with the ratio depending on the VR or desktop state - Was 18 initially
+				_subtitlesTxt.raycastTarget = false;
+				_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+				_subtitlesTxt.color = _currentSubtitlesColor;
+				_subtitlesTxt.text = GETRandomQuote();
+
+				_subtitlesTxt.font = _fontAssets["Arial"];
+
+				_subtitlesTxt.fontSize = GETFontSize(18); // Will deal automatically with the ratio depending on the VR or desktop state - Was 18 initially
 
 				// Selecting the default alignment
-				ChangeSubtitlesAlignment( SubtitleAlignmentChoice.val );			
+				ChangeSubtitlesAlignment(_subtitleAlignmentChoice.val);
 
 				// Defining shadow properties
-				SubtitlesTxtShadow.effectColor = Color.black;
-				SubtitlesTxtShadow.effectDistance = new Vector2(2f, -0.5f);
+				_subtitlesTxtShadow.effectColor = Color.black;
+				_subtitlesTxtShadow.effectDistance = new Vector2(2f, -0.5f);
 
 				// And finally again, RectTransform tweaks
-				RectTransform SubtitlesRecTr = SubtitlesTxt.GetComponent<RectTransform>();
-				SubtitlesRecTr.localPosition = new Vector3(0, 0, 0);
-				SubtitlesRecTr.localScale = new Vector3(1, 1, 1);
-				SubtitlesRecTr.localRotation = Quaternion.identity;
-				SubtitlesRecTr.anchorMin = new Vector2(0, 0);
-				SubtitlesRecTr.anchorMax = new Vector2(1, 1);
-				
+				var subtitlesRecTr = _subtitlesTxt.GetComponent<RectTransform>();
+				subtitlesRecTr.localPosition = new Vector3(0, 0, 0);
+				subtitlesRecTr.localScale = new Vector3(1, 1, 1);
+				subtitlesRecTr.localRotation = Quaternion.identity;
+				subtitlesRecTr.anchorMin = new Vector2(0, 0);
+				subtitlesRecTr.anchorMax = new Vector2(1, 1);
+
 				// **********************************
 				// SETUP BASED ON VR OR DESKTOP MODE
 				// **********************************
-				
+
 				// VR Configs
-				if( isPlayerInVr == true ) {
-					SubtitlesRecTr.offsetMin = new Vector2(370.0f, 0.0f); // Was 280f initially
-					SubtitlesRecTr.offsetMax = new Vector2(-370.0f, 0.0f);
-				// Desktop configs
-				} else {
-					SubtitlesRecTr.offsetMin = new Vector2(300.0f, -200.0f);
-					SubtitlesRecTr.offsetMax = new Vector2(-300.0f, 200.0f);
+				if (_isPlayerInVr)
+				{
+					subtitlesRecTr.offsetMin = new Vector2(370.0f, 0.0f); // Was 280f initially
+					subtitlesRecTr.offsetMax = new Vector2(-370.0f, 0.0f);
+					// Desktop configs
+				}
+				else
+				{
+					subtitlesRecTr.offsetMin = new Vector2(300.0f, -200.0f);
+					subtitlesRecTr.offsetMax = new Vector2(-300.0f, 200.0f);
 				}
 			}
-            catch(Exception e)
-            {
-                SuperController.LogError("VAMOverlays - Exception caught will initializing: " + e);
-            }
-		}
-		
-		protected void doShowSubtitles5secs() {
-			if ( SubtitlesTxt != null ) {
-				SubtitlesTxt.canvasRenderer.SetAlpha(0.0f);
-				SubtitlesTxt.CrossFadeAlpha(1.0f, 1.0f,false);
-				Invoke("doHideSubtitles", 6.0f );
+			catch (Exception e)
+			{
+				SuperController.LogError("VAMOverlays - Exception caught will initializing: " + e);
 			}
 		}
-		
-		protected void doShowSubtitlesPermanent() {
-			if ( SubtitlesTxt != null ) {
-				SubtitlesTxt.canvasRenderer.SetAlpha(0.0f);
-				SubtitlesTxt.CrossFadeAlpha(1.0f, 1.0f,false);
+
+		private void DoShowSubtitles5Secs()
+		{
+			if (_subtitlesTxt != null)
+			{
+				_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+				_subtitlesTxt.CrossFadeAlpha(1.0f, 1.0f, false);
+				Invoke(nameof(DoHideSubtitles), 6.0f);
 			}
 		}
-		
-		protected void doHideSubtitles() {
-			if ( SubtitlesTxt != null ) {
-				SubtitlesTxt.CrossFadeAlpha(0.0f, 1.0f,false);
+
+		private void DoShowSubtitlesPermanent()
+		{
+			if (_subtitlesTxt != null)
+			{
+				_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+				_subtitlesTxt.CrossFadeAlpha(1.0f, 1.0f, false);
+			}
+		}
+
+		private void DoHideSubtitles()
+		{
+			if (_subtitlesTxt != null)
+			{
+				_subtitlesTxt.CrossFadeAlpha(0.0f, 1.0f, false);
 			}
 		}
 
 		// **************************
 		// Callbacks
 		// **************************
-		private void OnFontsBundleLoaded(Request aRequest) {
+		private void OnFontsBundleLoaded(Request aRequest)
+		{
 			// Loading font assets
-			foreach( KeyValuePair<string, string> fontKvp in FontList )
+			foreach (var fontKvp in _fontList)
 			{
-				Font fnt = aRequest.assetBundle.LoadAsset<Font>(fontKvp.Value);
-				if( fnt != null ) {
-					// Adding font asset if successfuly loaded in the assets
-					FontAssets.Add(fontKvp.Key, fnt);
-					// If we have a value set in the custom UI that is the same as our font, let's update the Canvas
-					if( SubtitleAlignmentChoice.val == fontKvp.Key ) {
-						ChangeSubtitlesFont(fontKvp.Key);
-					}
+				var fnt = aRequest.assetBundle.LoadAsset<Font>(fontKvp.Value);
+				if (fnt == null) continue;
+				// Adding font asset if successfully loaded in the assets
+				_fontAssets.Add(fontKvp.Key, fnt);
+				// If we have a value set in the custom UI that is the same as our font, let's update the Canvas
+				if (_subtitleAlignmentChoice.val == fontKvp.Key)
+				{
+					ChangeSubtitlesFont(fontKvp.Key);
 				}
-			}	
+			}
 
 		}
-		
-		protected void FadeColorCallback(JSONStorableColor selectedColor) {
-			if ( FadeImg != null ) {
-				FadeImg.color = HSVColorPicker.HSVToRGB(selectedColor.val);
-				CurrentFadeColor = HSVColorPicker.HSVToRGB(selectedColor.val);
+
+		private void FadeColorCallback(JSONStorableColor selectedColor)
+		{
+			if (_fadeImg != null)
+			{
+				_fadeImg.color = HSVColorPicker.HSVToRGB(selectedColor.val);
+				_currentFadeColor = HSVColorPicker.HSVToRGB(selectedColor.val);
 			}
 		}
-		
-		protected void setFadeInTimeCallback(float fadeintime) {
-			CurrentFadeInTime = fadeintime;
+
+		private void SetFadeInTimeCallback(float fadeInTime)
+		{
+			_currentFadeInTime = fadeInTime;
 		}
-		
-		protected void setFadeOutTimeCallback(float fadeouttime) {
-			CurrentFadeOutTime = fadeouttime;
+
+		private void SetFadeOutTimeCallback(float fadeOutTime)
+		{
+			_currentFadeOutTime = fadeOutTime;
 		}
-		
-		protected void SubtitlesColorCallback(JSONStorableColor selectedColor) {
-			if ( SubtitlesTxt != null ) {
-				SubtitlesTxt.color = HSVColorPicker.HSVToRGB(selectedColor.val);
-				CurrentSubtitlesColor = HSVColorPicker.HSVToRGB(selectedColor.val);
+
+		private void SubtitlesColorCallback(JSONStorableColor selectedColor)
+		{
+			if (_subtitlesTxt != null)
+			{
+				_subtitlesTxt.color = HSVColorPicker.HSVToRGB(selectedColor.val);
+				_currentSubtitlesColor = HSVColorPicker.HSVToRGB(selectedColor.val);
 			}
 		}
-		
-		protected void SetFadeColorCallback(JSONStorableColor val) {
-			if ( FadeImg != null ) {
-				FadeImg.color = val.colorPicker.currentColor;
-				CurrentFadeColor = val.colorPicker.currentColor;
-			}
-		}
-		
-		protected void PreviewSubtitlesCallback(JSONStorableBool state) {
-			if ( SubtitlesTxt != null ) {
-				if( state.val == true ) {
-					SubtitlesTxt.text = getRandomQuote();
-					SubtitlesTxt.canvasRenderer.SetAlpha(1.0f);
-				} else {
-					SubtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+
+		private void PreviewSubtitlesCallback(JSONStorableBool state)
+		{
+			if (_subtitlesTxt != null)
+			{
+				if (state.val)
+				{
+					_subtitlesTxt.text = GETRandomQuote();
+					_subtitlesTxt.canvasRenderer.SetAlpha(1.0f);
+				}
+				else
+				{
+					_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
 				}
 			}
 		}
-		
-		protected void SubtitlesValueCallback(JSONStorableString text) {
-			if ( SubtitlesTxt != null ) {
-				SubtitlesTxt.text = SubtitlesText.val;
+
+		private void SubtitlesValueCallback(JSONStorableString text)
+		{
+			if (_subtitlesTxt != null)
+			{
+				_subtitlesTxt.text = _subtitlesText.val;
 			}
 		}
-		
-		protected void SubtitlesSizeCallback(float subtitlesSize) {
-			if( SubtitlesTxt != null ) {
-				SubtitlesTxt.fontSize = getFontSize( subtitlesSize );
+
+		private void SubtitlesSizeCallback(float subtitlesSize)
+		{
+			if (_subtitlesTxt != null)
+			{
+				_subtitlesTxt.fontSize = GETFontSize(subtitlesSize);
 			}
 		}
-		
-		protected void SubtitlesFontCallback(string fontchoice) {
-			ChangeSubtitlesFont( fontchoice );
+
+		private void SubtitlesFontCallback(string fontChoice)
+		{
+			ChangeSubtitlesFont(fontChoice);
 		}
-		protected void SubtitlesAlignementCallback(string alignementchoice) {
-			ChangeSubtitlesAlignment( alignementchoice );
+
+		private void SubtitlesAlignmentCallback(string alignmentChoice)
+		{
+			ChangeSubtitlesAlignment(alignmentChoice);
 		}
-			
-		// **************************
-		// Local Tools
-		// **************************
-		private void logDebug( string debugText ) {
-			SuperController.LogMessage( debugText );
-		}
-		
+
 		// **************************
 		// Time to cleanup !
 		// **************************
-		void OnDestroy() {
+		private void OnDestroy()
+		{
 			// Removing the main object, every children will be destroyed too
-			Destroy(VAMOverlaysGO);
-			
+			Destroy(_vamOverlaysGO);
+
 			// Font bundle unload
-			AssetLoader.DoneWithAssetBundleFromFile(FONTS_BUNDLE_PATH);
+			AssetLoader.DoneWithAssetBundleFromFile(_fontsBundlePath);
 		}
-		
+
 		// ***********************************************************
 		// EXTERNAL TOOL - Thank you great coders for your content!
 		// ***********************************************************
-		
+
 		// *********** MacGruber_Utils.cs START *********************
-		// Get directory path where the plugin is located. Based on Alazi's & VAMDeluxe's method.
-		public static string GetPluginPath(MVRScript self)
+		// Get directory path where the plugin is located. Based on Alazi's & VAMDeluxe method.
+		private static string GetPluginPath(MVRScript self)
 		{
-			string id = self.name.Substring(0, self.name.IndexOf('_'));
-			string filename = self.manager.GetJSON()["plugins"][id].Value;
-			return filename.Substring(0, filename.LastIndexOfAny(new char[] { '/', '\\' }));
-		}
-				
-		// Get path prefix of the package that contains our plugin.
-		public static string GetPackagePath(MVRScript self)
-		{
-			string id = self.name.Substring(0, self.name.IndexOf('_'));
-			string filename = self.manager.GetJSON()["plugins"][id].Value;
-			int idx = filename.IndexOf(":/");
-			if (idx >= 0)
-				return filename.Substring(0, idx+2);
-			else
-				return string.Empty;
-		}
-				
-		// Check if our plugin is running from inside a package
-		public static bool IsInPackage(MVRScript self)
-		{
-			string id = self.name.Substring(0, self.name.IndexOf('_'));
-			string filename = self.manager.GetJSON()["plugins"][id].Value;
-			return filename.IndexOf(":/") >= 0;
+			var id = self.name.Substring(0, self.name.IndexOf('_'));
+			var filename = self.manager.GetJSON()["plugins"][id].Value;
+			return filename.Substring(0, filename.LastIndexOfAny(new[] { '/', '\\' }));
 		}
 		// *********** MacGruber_Utils.cs END *********************
 	}
