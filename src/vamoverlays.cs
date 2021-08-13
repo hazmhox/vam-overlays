@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using MeshVR;
@@ -67,6 +68,7 @@ namespace VAMOverlaysPlugin
 		private RectTransform _subtitlesRecTr;
 
 		private JSONStorableBool _fadeAtStart;
+		private JSONStorableBool _fadeInOnLoadComplete;
 		private JSONStorableColor _fadeColor;
 		private JSONStorableFloat _fadeInTime;
 		private JSONStorableFloat _fadeOutTime;
@@ -148,9 +150,25 @@ namespace VAMOverlaysPlugin
 				// Fade at start enabled ?
 				_fadeAtStart = new JSONStorableBool("Fade at start", false)
 				{
-					storeType = JSONStorableParam.StoreType.Full
+					storeType = JSONStorableParam.StoreType.Full,
+					setCallbackFunction = val =>
+					{
+						if (!val)
+							_fadeInOnLoadComplete.valNoCallback = false;
+					}
 				};
 				CreateToggle(_fadeAtStart, false);
+
+				_fadeInOnLoadComplete = new JSONStorableBool("Fade in on load complete", false)
+				{
+					storeType = JSONStorableParam.StoreType.Full,
+					setCallbackFunction = val =>
+					{
+						if (val)
+							_fadeAtStart.valNoCallback = true;
+					}
+				};
+				CreateToggle(_fadeInOnLoadComplete, false);
 
 				// Fade in time
 				_fadeInTime = new JSONStorableFloat("Fade in time", 5.0f, 0f, 120.0f, true, true)
@@ -188,6 +206,7 @@ namespace VAMOverlaysPlugin
 					"<color=#333>" +
 					"<b>Fade color :</b> The color of the fade effect\n\n" +
 					"<b>Fade at start :</b> If the fade should cover the screen when the scene has finished loading\nIf you don't control the fade in afterwards, the scene will stay black (or the color you have selected) and the player will only be able to see the menus.\n\n" +
+					"<b>Fade in on load complete :</b> Whether to automatically fade in as soon as the scene finishes loading.\n\n" +
 					"<b>Fade in time :</b> How much time it takes to fade from the color being opaque to completely transparent.\n\n" +
 					"<b>Fade out time :</b> How much time it takes to fade from the color being completely transparent to opaque.\n\n" +
 					"</color>"
@@ -345,6 +364,7 @@ namespace VAMOverlaysPlugin
 				RegisterAction(fakeFuncDoNotUseBelow);
 				RegisterColor(_fadeColor);
 				RegisterBool(_fadeAtStart);
+				RegisterBool(_fadeInOnLoadComplete);
 				RegisterFloat(_fadeInTime);
 				RegisterFloat(_fadeOutTime);
 
@@ -371,12 +391,24 @@ namespace VAMOverlaysPlugin
 				{
 					// Make the fade layer opaque
 					_fadeImg.canvasRenderer.SetAlpha(1.0f);
+
+					if (_fadeInOnLoadComplete.val)
+					{
+						StartCoroutine(FadeInOnLoadCompleteCo());
+					}
 				}
 			}
 			catch (Exception e)
 			{
 				SuperController.LogError("VAMOverlays: " + e);
 			}
+		}
+
+		private IEnumerator FadeInOnLoadCompleteCo()
+		{
+			while (SuperController.singleton.isLoading)
+				yield return 0;
+			FadeIn();
 		}
 
 #if(DEBUG)
@@ -455,12 +487,15 @@ namespace VAMOverlaysPlugin
 			// CREATION OF THE ELEMENTS
 			// ******************************
 			// Creation of the main Canvas
-			_vamOverlaysGO = new GameObject("FadeCanvas");
-
-			// ReSharper disable once PossibleNullReferenceException
-			_vamOverlaysGO.transform.localRotation = Quaternion.identity;
-			_vamOverlaysGO.transform.localPosition = new Vector3(0, 0, 0);
-			_vamOverlaysGO.layer = 5;
+			_vamOverlaysGO = new GameObject("FadeCanvas")
+			{
+				transform =
+				{
+					localRotation = Quaternion.identity,
+					localPosition = new Vector3(0, 0, 0)
+				},
+				layer = 5
+			};
 			_overlaysCanvas = _vamOverlaysGO.AddComponent<Canvas>();
 			_overlaysCanvas.renderMode = RenderMode.WorldSpace;
 			_overlaysCanvas.sortingOrder = 2;
@@ -539,7 +574,7 @@ namespace VAMOverlaysPlugin
 			if (_subtitlesTxt == null) return;
 			var size = _subtitlesSize.val;
 			var finalSize = size * 2.34f; // original value * tweak for updates (to avoid breaking old scenes)
-			if (XRDevice.isPresent)
+			if (SuperController.singleton.centerCameraTarget.targetCamera != SuperController.singleton.MonitorCenterCamera)
 			{
 				finalSize = size * 5f; // VR multiplier - was 2.5f
 			}
@@ -549,23 +584,22 @@ namespace VAMOverlaysPlugin
 
 		private void SyncOverlay()
 		{
-			var cam = Camera.main;
+			if (_subtitlesRecTr == null) return;
+			var cam = SuperController.singleton.centerCameraTarget.targetCamera;
 			if (cam == null) return;
 			_vamOverlaysGO.transform.SetParent(cam.transform, false);
 			_overlaysCanvas.worldCamera = cam;
-
-			if (_subtitlesRecTr == null) return;
-			if (XRDevice.isPresent)
+			if (cam == SuperController.singleton.MonitorCenterCamera)
+			{
+				// Desktop config
+				_subtitlesRecTr.offsetMin = new Vector2(300.0f, -200.0f);
+				_subtitlesRecTr.offsetMax = new Vector2(-300.0f, 200.0f);
+			}
+			else
 			{
 				// VR Configs
 				_subtitlesRecTr.offsetMin = new Vector2(370.0f, 0.0f); // Was 280f initially
 				_subtitlesRecTr.offsetMax = new Vector2(-370.0f, 0.0f);
-			}
-			else
-			{
-				// Desktop configs
-				_subtitlesRecTr.offsetMin = new Vector2(300.0f, -200.0f);
-				_subtitlesRecTr.offsetMax = new Vector2(-300.0f, 200.0f);
 			}
 		}
 
@@ -617,11 +651,9 @@ namespace VAMOverlaysPlugin
 		// **************************
 		private void OnFontsBundleLoaded(Request aRequest)
 		{
-			SuperController.LogMessage(FontList.Count + "fonts");
 			// Loading font assets
 			foreach (var fontKvp in FontList)
 			{
-				SuperController.LogMessage(fontKvp.Key);
 				if (fontKvp.Value == null) continue;
 				var fnt = aRequest.assetBundle.LoadAsset<Font>(fontKvp.Value);
 				if (fnt == null) continue;
