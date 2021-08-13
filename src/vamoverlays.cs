@@ -183,7 +183,7 @@ namespace VAMOverlaysPlugin
 				// *****************************
 				// HELP
 				// *****************************
-				var helpText = new JSONStorableString("Help",
+				var fadeHelpText = new JSONStorableString("Help",
 					"<color=#000><size=35><b>Fading help</b></size></color>\n\n" +
 					"<color=#333>" +
 					"<b>Fade color :</b> The color of the fade effect\n\n" +
@@ -192,8 +192,8 @@ namespace VAMOverlaysPlugin
 					"<b>Fade out time :</b> How much time it takes to fade from the color being completely transparent to opaque.\n\n" +
 					"</color>"
 				);
-				var helpTextfield = CreateTextField(helpText, false);
-				helpTextfield.height = 800.0f;
+				var fadeHelpTextField = CreateTextField(fadeHelpText, false);
+				fadeHelpTextField.height = 800.0f;
 
 				// **************************************************
 				// ** RIGHT : Subtitles properties
@@ -256,6 +256,22 @@ namespace VAMOverlaysPlugin
 
 				_subtitlesShowDuration = new JSONStorableFloat("Subtitles duration", 5f, 0f, 30f, false);
 				CreateSlider(_subtitlesShowDuration, true);
+
+				// *****************************
+				// HELP
+				// *****************************
+				var subtitlesHelpText = new JSONStorableString("Help",
+					"<color=#000><size=35><b>Subtitles help</b></size></color>\n\n" +
+					"<color=#333>" +
+					"<b>Subtitles size :</b> The size of the text (will be larger in VR).\n\n" +
+					"<b>Font :</b> The font family used by the subtitles.\n\n" +
+					"<b>Text alignment :</b> Where will the subtitles show on the screen.\n\n" +
+					"<b>Subtitles fade duration :</b> How much time it takes to fade the subtitles in or out.\n\n" +
+					"<b>Subtitles duration :</b> When triggered using 'Set subtitles text and show now', determines after how many seconds to hide the subtitles.\n\n" +
+					"</color>"
+				);
+				var subtitlesHelpTextField = CreateTextField(subtitlesHelpText, true);
+				subtitlesHelpTextField.height = 800.0f;
 
 				// *****************************
 				// Actions to allow scripting
