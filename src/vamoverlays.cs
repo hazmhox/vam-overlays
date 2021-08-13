@@ -76,19 +76,24 @@ namespace VAMOverlaysPlugin
 		private JSONStorableFloat _subtitlesSize;
 		private JSONStorableStringChooser _subtitlesFontChoice;
 		private JSONStorableStringChooser _subtitleAlignmentChoice;
+		private JSONStorableFloat _subtitlesFadeDuration;
+		private JSONStorableFloat _subtitlesShowDuration;
 
 		private JSONStorableAction _triggerFadeIn;
 		private JSONStorableAction _triggerFadeOut;
 		private JSONStorableColor _setFadeColor;
 		private JSONStorableFloat _setFadeInTime;
 		private JSONStorableFloat _setFadeOutTime;
-
 		private JSONStorableColor _setSubtitlesColor;
 		private JSONStorableFloat _setSubtitlesSize;
 		private JSONStorableStringChooser _setSubtitlesFont;
 		private JSONStorableStringChooser _setSubtitlesAlignment;
+		private JSONStorableFloat _setSubtitlesCrossFadeDuration;
+		private JSONStorableFloat _setSubtitlesShowDuration;
+
 		private JSONStorableAction _showSubtitles5Secs;
 		private JSONStorableAction _showSubtitlesPermanent;
+		private JSONStorableString _setSubtitlesTextAndShowNow;
 		private JSONStorableAction _hideSubtitles;
 
 #if(DEBUG)
@@ -215,6 +220,7 @@ namespace VAMOverlaysPlugin
 				_subtitlesSize = new JSONStorableFloat("Subtitles size", 18, val =>
 				{
 					_subtitlesSize.valNoCallback = Mathf.Round(val);
+					_setSubtitlesSize.valNoCallback = _subtitlesSize.val;
 					SyncFontSize();
 				}, 12, 100);
 				var subtitlesSizeSlider = CreateSlider(_subtitlesSize, true);
@@ -245,19 +251,22 @@ namespace VAMOverlaysPlugin
 				var sacUdp = CreateScrollablePopup(_subtitleAlignmentChoice, true);
 				sacUdp.labelWidth = 300f;
 
+				_subtitlesFadeDuration = new JSONStorableFloat("Subtitles fade duration", 1f, 0f, 10f, false);
+				CreateSlider(_subtitlesFadeDuration, true);
+
+				_subtitlesShowDuration = new JSONStorableFloat("Subtitles duration", 5f, 0f, 30f, false);
+				CreateSlider(_subtitlesShowDuration, true);
+
 				// *****************************
 				// Actions to allow scripting
 				// *****************************
-				_triggerFadeIn = new JSONStorableAction("Start Fade In", FadeIn);
-				_triggerFadeOut = new JSONStorableAction("Start Fade Out", FadeOut);
 				_setFadeColor = new JSONStorableColor("Change fade color", hsvcFa, FadeColorCallback) { isStorable = false };
 				_setFadeInTime = new JSONStorableFloat("Change fade in time", 5, 0f, 120.0f) { isStorable = false };
 				_setFadeOutTime = new JSONStorableFloat("Change fade out time", 5, 0f, 120.0f) { isStorable = false };
 				_setSubtitlesColor = new JSONStorableColor("Change subtitles color", hsvcSt, SubtitlesColorCallback) { isStorable = false };
 				_setSubtitlesSize = new JSONStorableFloat("Change subtitles size", 18, val =>
 				{
-					_setSubtitlesSize.valNoCallback = Mathf.Round(val);
-					SyncFontSize();
+					_subtitlesSize.val = val;
 				}, 18.0f, 100.0f) { isStorable = false };
 				_setSubtitlesFont = new JSONStorableStringChooser(
 					"Change subtitles font",
@@ -278,8 +287,15 @@ namespace VAMOverlaysPlugin
 					"Change subtitles alignment",
 					SubtitlesAlignmentCallback
 				) { isStorable = false };
+				_setSubtitlesCrossFadeDuration = new JSONStorableFloat("Change subtitles cross fade duration", 1f, 0f, 10f, false) { isStorable = false };
+				_setSubtitlesShowDuration = new JSONStorableFloat("Change subtitles show duration", 5f, 0f, 20f, false) { isStorable = false };
+
+				// Actions
+				_triggerFadeIn = new JSONStorableAction("Start Fade In", FadeIn);
+				_triggerFadeOut = new JSONStorableAction("Start Fade Out", FadeOut);
 				_showSubtitles5Secs = new JSONStorableAction("Show subtitles for 5secs", DoShowSubtitles5Secs);
 				_showSubtitlesPermanent = new JSONStorableAction("Show subtitles permanently", DoShowSubtitlesPermanent);
+				_setSubtitlesTextAndShowNow = new JSONStorableString("Set subtitles text and show now", "", SetSubtitlesTextAndShowNow) { isStorable = false };
 				_hideSubtitles = new JSONStorableAction("Hide subtitles", DoHideSubtitles);
 
 				// Fake actions to split things the user can use safely
@@ -292,6 +308,8 @@ namespace VAMOverlaysPlugin
 				RegisterAction(fakeFuncUseBelow);
 				RegisterAction(_triggerFadeIn);
 				RegisterAction(_triggerFadeOut);
+				RegisterString(_setSubtitlesTextAndShowNow);
+
 				RegisterColor(_setFadeColor);
 				RegisterFloat(_setFadeInTime);
 				RegisterFloat(_setFadeOutTime);
@@ -301,6 +319,8 @@ namespace VAMOverlaysPlugin
 				RegisterFloat(_setSubtitlesSize);
 				RegisterStringChooser(_setSubtitlesFont);
 				RegisterStringChooser(_setSubtitlesAlignment);
+				RegisterFloat(_setSubtitlesCrossFadeDuration);
+				RegisterFloat(_setSubtitlesShowDuration);
 				RegisterAction(_showSubtitles5Secs);
 				RegisterAction(_showSubtitlesPermanent);
 				RegisterAction(_hideSubtitles);
@@ -316,6 +336,8 @@ namespace VAMOverlaysPlugin
 				RegisterFloat(_subtitlesSize);
 				RegisterStringChooser(_subtitlesFontChoice);
 				RegisterStringChooser(_subtitleAlignmentChoice);
+				RegisterFloat(_subtitlesFadeDuration);
+				RegisterFloat(_subtitlesShowDuration);
 			}
 			catch (Exception e)
 			{
@@ -352,7 +374,7 @@ namespace VAMOverlaysPlugin
 		// Functions
 		// **************************
 
-		private string GetRandomQuote()
+		private static string GetRandomQuote()
 		{
 			var random = new System.Random();
 			var quoteIndex = random.Next(SubtitlesQuotes.Count);
@@ -474,7 +496,7 @@ namespace VAMOverlaysPlugin
 			_subtitlesTxt.raycastTarget = false;
 			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
 			_subtitlesTxt.color = _subtitlesColor.colorPicker.currentColor;
-			_subtitlesTxt.text = GetRandomQuote();
+			_subtitlesTxt.text = "";
 
 			_subtitlesTxt.font = _fontAssets["Arial"];
 
@@ -539,25 +561,39 @@ namespace VAMOverlaysPlugin
 
 		private void DoShowSubtitles5Secs()
 		{
-			SyncVRMode();
+			CancelInvoke(nameof(DoHideSubtitles));
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
-			_subtitlesTxt.CrossFadeAlpha(1.0f, 1.0f, false);
-			Invoke(nameof(DoHideSubtitles), 6.0f);
+			_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
+			Invoke(nameof(DoHideSubtitles), 5 + _subtitlesFadeDuration.val);
 		}
 
 		private void DoShowSubtitlesPermanent()
 		{
+			CancelInvoke(nameof(DoHideSubtitles));
 			SyncVRMode();
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
-			_subtitlesTxt.CrossFadeAlpha(1.0f, 1.0f, false);
+			_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
+		}
+
+		private void SetSubtitlesTextAndShowNow(string text)
+		{
+			CancelInvoke(nameof(DoHideSubtitles));
+			_subtitlesText.valNoCallback = text;
+			_setSubtitlesTextAndShowNow.valNoCallback = "";
+			SyncVRMode();
+			if (_subtitlesTxt == null) return;
+			_subtitlesTxt.text = _subtitlesText.val;
+			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+			_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
+			Invoke(nameof(DoHideSubtitles), _subtitlesShowDuration.val + _subtitlesFadeDuration.val);
 		}
 
 		private void DoHideSubtitles()
 		{
 			if (_subtitlesTxt == null) return;
-			_subtitlesTxt.CrossFadeAlpha(0.0f, 1.0f, false);
+			_subtitlesTxt.CrossFadeAlpha(0.0f, _subtitlesFadeDuration.val, false);
 		}
 
 		// **************************
@@ -601,6 +637,7 @@ namespace VAMOverlaysPlugin
 			if (_subtitlesTxt == null) return;
 			if (state.val)
 			{
+				CancelInvoke(nameof(DoHideSubtitles));
 				SyncVRMode();
 				_subtitlesTxt.text = GetRandomQuote();
 				_subtitlesTxt.canvasRenderer.SetAlpha(1.0f);
