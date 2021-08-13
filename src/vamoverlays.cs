@@ -91,7 +91,7 @@ namespace VAMOverlaysPlugin
 		private JSONStorableFloat _setSubtitlesSize;
 		private JSONStorableStringChooser _setSubtitlesFont;
 		private JSONStorableStringChooser _setSubtitlesAlignment;
-		private JSONStorableFloat _setSubtitlesCrossFadeDuration;
+		private JSONStorableFloat _setSubtitlesFadeDuration;
 		private JSONStorableFloat _setSubtitlesShowDuration;
 
 		private JSONStorableAction _showSubtitles5Secs;
@@ -296,20 +296,17 @@ namespace VAMOverlaysPlugin
 				// *****************************
 				// Actions to allow scripting
 				// *****************************
-				_setFadeColor = new JSONStorableColor("Change fade color", hsvcFa, FadeColorCallback) { isStorable = false };
-				_setFadeInTime = new JSONStorableFloat("Change fade in time", 5, 0f, 120.0f) { isStorable = false };
-				_setFadeOutTime = new JSONStorableFloat("Change fade out time", 5, 0f, 120.0f) { isStorable = false };
-				_setSubtitlesColor = new JSONStorableColor("Change subtitles color", hsvcSt, SubtitlesColorCallback) { isStorable = false };
-				_setSubtitlesSize = new JSONStorableFloat("Change subtitles size", 18, val =>
-				{
-					_subtitlesSize.val = val;
-				}, 18.0f, 100.0f) { isStorable = false };
+				_setFadeColor = new JSONStorableColor("Change fade color", hsvcFa, jsc => _setFadeColor.val = jsc.val) { isStorable = false };
+				_setFadeInTime = new JSONStorableFloat("Change fade in time", 5, val => _fadeInTime.val = val, 0f, 120.0f) { isStorable = false };
+				_setFadeOutTime = new JSONStorableFloat("Change fade out time", 5, val => _fadeOutTime.val = val, 0f, 120.0f) { isStorable = false };
+				_setSubtitlesColor = new JSONStorableColor("Change subtitles color", hsvcSt, jsc => _subtitlesColor.val = jsc.val) { isStorable = false };
+				_setSubtitlesSize = new JSONStorableFloat("Change subtitles size", 18, val => _subtitlesSize.val = val, 18.0f, 100.0f) { isStorable = false };
 				_setSubtitlesFont = new JSONStorableStringChooser(
 					"Change subtitles font",
 					_fontChoices,
 					_fontChoices[0],
 					"Change subtitles font",
-					ChangeSubtitlesFont
+					val => _subtitlesFontChoice.val = val
 				) { isStorable = false };
 				_setSubtitlesAlignment = new JSONStorableStringChooser(
 					"Change subtitles alignment",
@@ -321,10 +318,10 @@ namespace VAMOverlaysPlugin
 					},
 					"Bottom",
 					"Change subtitles alignment",
-					SubtitlesAlignmentCallback
+					val => _subtitleAlignmentChoice.val = val
 				) { isStorable = false };
-				_setSubtitlesCrossFadeDuration = new JSONStorableFloat("Change subtitles cross fade duration", 1f, 0f, 10f, false) { isStorable = false };
-				_setSubtitlesShowDuration = new JSONStorableFloat("Change subtitles show duration", 5f, 0f, 20f, false) { isStorable = false };
+				_setSubtitlesFadeDuration = new JSONStorableFloat("Change subtitles cross fade duration", 1f, val => _subtitlesFadeDuration.val = val, 0f, 10f, false) { isStorable = false };
+				_setSubtitlesShowDuration = new JSONStorableFloat("Change subtitles show duration", 5f, val => _subtitlesShowDuration.val = val, 0f, 20f, false) { isStorable = false };
 
 				// Actions
 				_triggerFadeIn = new JSONStorableAction("Start Fade In", FadeIn);
@@ -359,7 +356,7 @@ namespace VAMOverlaysPlugin
 				RegisterFloat(_setSubtitlesSize);
 				RegisterStringChooser(_setSubtitlesFont);
 				RegisterStringChooser(_setSubtitlesAlignment);
-				RegisterFloat(_setSubtitlesCrossFadeDuration);
+				RegisterFloat(_setSubtitlesFadeDuration);
 				RegisterFloat(_setSubtitlesShowDuration);
 				RegisterAction(_showSubtitles5Secs);
 				RegisterAction(_showSubtitlesPermanent);
