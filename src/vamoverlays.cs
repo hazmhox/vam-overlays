@@ -149,37 +149,27 @@ namespace VAMOverlaysPlugin
 				CreateColorPicker(_fadeColor);
 
 				// Fade at start enabled ?
-				_fadeAtStart = new JSONStorableBool("Fade at start", false)
+				_fadeAtStart = new JSONStorableBool("Fade at start", false, FadeAtStartCallback)
 				{
-					storeType = JSONStorableParam.StoreType.Full,
-					setCallbackFunction = val =>
-					{
-						if (!val)
-							_fadeInOnLoadComplete.valNoCallback = false;
-					}
+					storeType = JSONStorableParam.StoreType.Full
 				};
 				CreateToggle(_fadeAtStart, false);
 
-				_fadeInOnLoadComplete = new JSONStorableBool("Fade in on load complete", false)
+				_fadeInOnLoadComplete = new JSONStorableBool("Fade in on load complete", false, FadeInOnLoadCompleteCallback)
 				{
-					storeType = JSONStorableParam.StoreType.Full,
-					setCallbackFunction = val =>
-					{
-						if (val)
-							_fadeAtStart.valNoCallback = true;
-					}
+					storeType = JSONStorableParam.StoreType.Full
 				};
 				CreateToggle(_fadeInOnLoadComplete, false);
 
 				// Fade in time
-				_fadeInTime = new JSONStorableFloat("Fade in time", 5.0f, 0f, 120.0f, true, true)
+				_fadeInTime = new JSONStorableFloat("Fade in time", 5.0f, val => _setFadeInTime.valNoCallback = val, 0f, 120.0f, true, true)
 				{
 					storeType = JSONStorableParam.StoreType.Full
 				};
 				CreateSlider(_fadeInTime, false);
 
 				// Fade out time
-				_fadeOutTime = new JSONStorableFloat("Fade out time", 5.0f, 0f, 120.0f, true, true)
+				_fadeOutTime = new JSONStorableFloat("Fade out time", 5.0f, val => _setFadeOutTime.valNoCallback = val, 0f, 120.0f, true, true)
 				{
 					storeType = JSONStorableParam.StoreType.Full
 				};
@@ -237,12 +227,7 @@ namespace VAMOverlaysPlugin
 				var previewSubtitles = new JSONStorableBool("Preview subtitles", false, PreviewSubtitlesCallback);
 				CreateToggle(previewSubtitles, true);
 
-				_subtitlesSize = new JSONStorableFloat("Subtitles size", 18, val =>
-				{
-					_subtitlesSize.valNoCallback = Mathf.Round(val);
-					_setSubtitlesSize.valNoCallback = _subtitlesSize.val;
-					SyncFontSize();
-				}, 12, 100);
+				_subtitlesSize = new JSONStorableFloat("Subtitles size", 18, SubtitlesSizeCallback, 12, 100);
 				var subtitlesSizeSlider = CreateSlider(_subtitlesSize, true);
 				subtitlesSizeSlider.valueFormat = "F1";
 
@@ -465,7 +450,7 @@ namespace VAMOverlaysPlugin
 		private void TestFadeOut()
 		{
 			FadeOut();
-			Invoke(nameof(FadeIn), _fadeOutTime.val + 5.0f);
+			Invoke(nameof(FadeIn), _fadeOutTime.val + 3.0f);
 		}
 
 		private void ChangeSubtitlesFont(string fontVal)
@@ -474,6 +459,7 @@ namespace VAMOverlaysPlugin
 			Font font;
 			if (_fontAssets.TryGetValue(fontVal, out font))
 				_subtitlesTxt.font = font;
+			_setSubtitlesFont.valNoCallback = fontVal;
 		}
 
 		private void ChangeSubtitlesAlignment(string alignmentVal)
@@ -684,12 +670,26 @@ namespace VAMOverlaysPlugin
 		{
 			if (_fadeImg == null) return;
 			_fadeImg.color = HSVColorPicker.HSVToRGB(selectedColor.val);
+			_setFadeColor.valNoCallback = selectedColor.val;
+		}
+
+		private void FadeAtStartCallback(bool val)
+		{
+			if (!val)
+				_fadeInOnLoadComplete.valNoCallback = false;
+		}
+
+		private void FadeInOnLoadCompleteCallback(bool val)
+		{
+			if (val)
+				_fadeAtStart.valNoCallback = true;
 		}
 
 		private void SubtitlesColorCallback(JSONStorableColor selectedColor)
 		{
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.color = HSVColorPicker.HSVToRGB(selectedColor.val);
+			_setSubtitlesColor.valNoCallback = selectedColor.val;
 		}
 
 		private void PreviewSubtitlesCallback(JSONStorableBool state)
@@ -706,6 +706,13 @@ namespace VAMOverlaysPlugin
 			{
 				_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
 			}
+		}
+
+		private void SubtitlesSizeCallback(float val)
+		{
+			_subtitlesSize.valNoCallback = Mathf.Round(val);
+			_setSubtitlesSize.valNoCallback = _subtitlesSize.val;
+			SyncFontSize();
 		}
 
 		private void SubtitlesValueCallback(JSONStorableString text)
