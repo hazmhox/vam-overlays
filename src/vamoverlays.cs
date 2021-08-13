@@ -82,6 +82,8 @@ namespace VAMOverlaysPlugin
 
 		private JSONStorableAction _triggerFadeIn;
 		private JSONStorableAction _triggerFadeOut;
+		private JSONStorableAction _triggerFadeInInstant;
+		private JSONStorableAction _triggerFadeOutInstant;
 		private JSONStorableColor _setFadeColor;
 		private JSONStorableFloat _setFadeInTime;
 		private JSONStorableFloat _setFadeOutTime;
@@ -327,6 +329,8 @@ namespace VAMOverlaysPlugin
 				// Actions
 				_triggerFadeIn = new JSONStorableAction("Start Fade In", FadeIn);
 				_triggerFadeOut = new JSONStorableAction("Start Fade Out", FadeOut);
+				_triggerFadeInInstant = new JSONStorableAction("Fade In Instant", FadeInInstant);
+				_triggerFadeOutInstant = new JSONStorableAction("Fade Out Instant", FadeOutInstant);
 				_showSubtitles5Secs = new JSONStorableAction("Show subtitles for 5secs", DoShowSubtitles5Secs);
 				_showSubtitlesPermanent = new JSONStorableAction("Show subtitles permanently", DoShowSubtitlesPermanent);
 				_setSubtitlesTextAndShowNow = new JSONStorableString("Set subtitles text and show now", "", SetSubtitlesTextAndShowNow) { isStorable = false };
@@ -342,6 +346,8 @@ namespace VAMOverlaysPlugin
 				RegisterAction(fakeFuncUseBelow);
 				RegisterAction(_triggerFadeIn);
 				RegisterAction(_triggerFadeOut);
+				RegisterAction(_triggerFadeInInstant);
+				RegisterAction(_triggerFadeOutInstant);
 				RegisterString(_setSubtitlesTextAndShowNow);
 
 				RegisterColor(_setFadeColor);
@@ -435,6 +441,11 @@ namespace VAMOverlaysPlugin
 			_fadeImg.CrossFadeAlpha(0.0f, _fadeInTime.val, false);
 		}
 
+		private void FadeInInstant()
+		{
+			_fadeImg.canvasRenderer.SetAlpha(0.0f);
+		}
+
 		// Triggers the FadeIn when you click on the test button
 		private void TestFadeIn()
 		{
@@ -446,6 +457,11 @@ namespace VAMOverlaysPlugin
 		{
 			_fadeImg.canvasRenderer.SetAlpha(0.0f);
 			_fadeImg.CrossFadeAlpha(1.0f, _fadeOutTime.val, false);
+		}
+
+		private void FadeOutInstant()
+		{
+			_fadeImg.canvasRenderer.SetAlpha(1.0f);
 		}
 
 		// Triggers the FadeOut when you click on the test button
