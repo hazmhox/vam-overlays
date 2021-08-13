@@ -213,12 +213,13 @@ namespace VAMOverlaysPlugin
 				var previewSubtitles = new JSONStorableBool("Preview subtitles", false, PreviewSubtitlesCallback);
 				CreateToggle(previewSubtitles, true);
 
-				_subtitlesSize = new JSONStorableFloat("Subtitles size", 0, val =>
+				_subtitlesSize = new JSONStorableFloat("Subtitles size", 18, val =>
 				{
 					_subtitlesSize.valNoCallback = Mathf.Round(val);
 					SubtitlesSizeCallback(_subtitlesSize.val);
-				}, 18.0f, 100.0f);
-				CreateSlider(_subtitlesSize, true);
+				}, 12, 100);
+				var subtitlesSizeSlider = CreateSlider(_subtitlesSize, true);
+				subtitlesSizeSlider.valueFormat = "F1";
 
 				_subtitlesFontChoice = new JSONStorableStringChooser(
 					"Font",
