@@ -15,7 +15,7 @@ namespace VAMOverlaysPlugin
 {
 	public class VAMOverlays : MVRScript
 	{
-				private static readonly List<string> SubtitlesQuotes = new List<string>
+		private static readonly List<string> SubtitlesQuotes = new List<string>
 		{
 			// ReSharper disable StringLiteralTypo
 			"<b>Ripley:</b> You better just start dealing with it, Hudson! Listen to me!\nHudson, just deal with it, because we need you and I'm sick of your bullshit.",
@@ -64,6 +64,7 @@ namespace VAMOverlaysPlugin
 		private GameObject _subtitlesTxtGO;
 		private Text _subtitlesTxt;
 		private Shadow _subtitlesTxtShadow;
+		private RectTransform _subtitlesRecTr;
 
 		private JSONStorableBool _fadeAtStart;
 		private JSONStorableColor _fadeColor;
@@ -89,8 +90,6 @@ namespace VAMOverlaysPlugin
 		private JSONStorableAction _showSubtitles5Secs;
 		private JSONStorableAction _showSubtitlesPermanent;
 		private JSONStorableAction _hideSubtitles;
-
-		private bool _isPlayerInVr;
 
 #if(DEBUG)
 		private JSONStorableString _debugArea;
@@ -216,7 +215,7 @@ namespace VAMOverlaysPlugin
 				_subtitlesSize = new JSONStorableFloat("Subtitles size", 18, val =>
 				{
 					_subtitlesSize.valNoCallback = Mathf.Round(val);
-					SubtitlesSizeCallback(_subtitlesSize.val);
+					SyncFontSize();
 				}, 12, 100);
 				var subtitlesSizeSlider = CreateSlider(_subtitlesSize, true);
 				subtitlesSizeSlider.valueFormat = "F1";
@@ -258,7 +257,7 @@ namespace VAMOverlaysPlugin
 				_setSubtitlesSize = new JSONStorableFloat("Change subtitles size", 18, val =>
 				{
 					_setSubtitlesSize.valNoCallback = Mathf.Round(val);
-					SubtitlesSizeCallback(_setSubtitlesSize.val);
+					SyncFontSize();
 				}, 18.0f, 100.0f) { isStorable = false };
 				_setSubtitlesFont = new JSONStorableStringChooser(
 					"Change subtitles font",
@@ -317,10 +316,6 @@ namespace VAMOverlaysPlugin
 				RegisterFloat(_subtitlesSize);
 				RegisterStringChooser(_subtitlesFontChoice);
 				RegisterStringChooser(_subtitleAlignmentChoice);
-
-				// Initializing my VR flag (maybe at some point I'll need to make some different checks, so I'm making that in advance)
-				_isPlayerInVr = XRDevice.isPresent;
-
 			}
 			catch (Exception e)
 			{
@@ -394,7 +389,9 @@ namespace VAMOverlaysPlugin
 		private void ChangeSubtitlesFont(string fontVal)
 		{
 			if (_subtitlesTxt == null) return;
-			_subtitlesTxt.font = _fontAssets[fontVal];
+			Font font;
+			if (_fontAssets.TryGetValue(fontVal, out font))
+				_subtitlesTxt.font = font;
 		}
 
 		private void ChangeSubtitlesAlignment(string alignmentVal)
@@ -414,16 +411,6 @@ namespace VAMOverlaysPlugin
 			}
 		}
 
-		private int GetFontSize(float size)
-		{
-			var finalSize = size * 2.34f; // original value * tweak for updates (to avoid breaking old scenes)
-			if (_isPlayerInVr)
-			{
-				finalSize = size * 5f; // VR multiplier - was 2.5f
-			}
-			return (int)Math.Round(finalSize);
-		}
-
 		private void InitFadeObjects()
 		{
 			// ******************************
@@ -432,16 +419,13 @@ namespace VAMOverlaysPlugin
 			// Creation of the main Canvas
 			_vamOverlaysGO = new GameObject("FadeCanvas");
 
-			var mainCam = Camera.main;
 			// ReSharper disable once PossibleNullReferenceException
-			_vamOverlaysGO.transform.SetParent(mainCam.transform);
 			_vamOverlaysGO.transform.localRotation = Quaternion.identity;
 			_vamOverlaysGO.transform.localPosition = new Vector3(0, 0, 0);
 			_vamOverlaysGO.layer = 5;
 			_overlaysCanvas = _vamOverlaysGO.AddComponent<Canvas>();
 			_overlaysCanvas.renderMode = RenderMode.WorldSpace;
 			_overlaysCanvas.sortingOrder = 2;
-			_overlaysCanvas.worldCamera = mainCam;
 			_overlaysCanvas.planeDistance = 10.0f;
 			_vamOverlaysGO.AddComponent<CanvasScaler>();
 
@@ -494,8 +478,6 @@ namespace VAMOverlaysPlugin
 
 			_subtitlesTxt.font = _fontAssets["Arial"];
 
-			_subtitlesTxt.fontSize = GetFontSize(18); // Will deal automatically with the ratio depending on the VR or desktop state - Was 18 initially
-
 			// Selecting the default alignment
 			ChangeSubtitlesAlignment(_subtitleAlignmentChoice.val);
 
@@ -504,33 +486,60 @@ namespace VAMOverlaysPlugin
 			_subtitlesTxtShadow.effectDistance = new Vector2(2f, -0.5f);
 
 			// And finally again, RectTransform tweaks
-			var subtitlesRecTr = _subtitlesTxt.GetComponent<RectTransform>();
-			subtitlesRecTr.localPosition = new Vector3(0, 0, 0);
-			subtitlesRecTr.localScale = new Vector3(1, 1, 1);
-			subtitlesRecTr.localRotation = Quaternion.identity;
-			subtitlesRecTr.anchorMin = new Vector2(0, 0);
-			subtitlesRecTr.anchorMax = new Vector2(1, 1);
+			_subtitlesRecTr = _subtitlesTxt.GetComponent<RectTransform>();
+			_subtitlesRecTr.localPosition = new Vector3(0, 0, 0);
+			_subtitlesRecTr.localScale = new Vector3(1, 1, 1);
+			_subtitlesRecTr.localRotation = Quaternion.identity;
+			_subtitlesRecTr.anchorMin = new Vector2(0, 0);
+			_subtitlesRecTr.anchorMax = new Vector2(1, 1);
 
-			// **********************************
-			// SETUP BASED ON VR OR DESKTOP MODE
-			// **********************************
+			SyncVRMode();
+		}
 
-			// VR Configs
-			if (_isPlayerInVr)
+		private void SyncFontSize()
+		{
+			if (_subtitlesTxt == null) return;
+			var size = _subtitlesSize.val;
+			var finalSize = size * 2.34f; // original value * tweak for updates (to avoid breaking old scenes)
+			if (XRDevice.isPresent)
 			{
-				subtitlesRecTr.offsetMin = new Vector2(370.0f, 0.0f); // Was 280f initially
-				subtitlesRecTr.offsetMax = new Vector2(-370.0f, 0.0f);
-				// Desktop configs
+				finalSize = size * 5f; // VR multiplier - was 2.5f
+			}
+
+			_subtitlesTxt.fontSize = (int)Math.Round(finalSize);
+		}
+
+		private void SyncOverlay()
+		{
+			var cam = Camera.main;
+			if (cam == null) return;
+			_vamOverlaysGO.transform.SetParent(cam.transform, false);
+			_overlaysCanvas.worldCamera = cam;
+
+			if (_subtitlesRecTr == null) return;
+			if (XRDevice.isPresent)
+			{
+				// VR Configs
+				_subtitlesRecTr.offsetMin = new Vector2(370.0f, 0.0f); // Was 280f initially
+				_subtitlesRecTr.offsetMax = new Vector2(-370.0f, 0.0f);
 			}
 			else
 			{
-				subtitlesRecTr.offsetMin = new Vector2(300.0f, -200.0f);
-				subtitlesRecTr.offsetMax = new Vector2(-300.0f, 200.0f);
+				// Desktop configs
+				_subtitlesRecTr.offsetMin = new Vector2(300.0f, -200.0f);
+				_subtitlesRecTr.offsetMax = new Vector2(-300.0f, 200.0f);
 			}
+		}
+
+		private void SyncVRMode()
+		{
+			SyncOverlay();
+			SyncFontSize();
 		}
 
 		private void DoShowSubtitles5Secs()
 		{
+			SyncVRMode();
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
 			_subtitlesTxt.CrossFadeAlpha(1.0f, 1.0f, false);
@@ -539,6 +548,7 @@ namespace VAMOverlaysPlugin
 
 		private void DoShowSubtitlesPermanent()
 		{
+			SyncVRMode();
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
 			_subtitlesTxt.CrossFadeAlpha(1.0f, 1.0f, false);
@@ -555,9 +565,11 @@ namespace VAMOverlaysPlugin
 		// **************************
 		private void OnFontsBundleLoaded(Request aRequest)
 		{
+			SuperController.LogMessage(FontList.Count + "fonts");
 			// Loading font assets
 			foreach (var fontKvp in FontList)
 			{
+				SuperController.LogMessage(fontKvp.Key);
 				if (fontKvp.Value == null) continue;
 				var fnt = aRequest.assetBundle.LoadAsset<Font>(fontKvp.Value);
 				if (fnt == null) continue;
@@ -589,6 +601,7 @@ namespace VAMOverlaysPlugin
 			if (_subtitlesTxt == null) return;
 			if (state.val)
 			{
+				SyncVRMode();
 				_subtitlesTxt.text = GetRandomQuote();
 				_subtitlesTxt.canvasRenderer.SetAlpha(1.0f);
 			}
@@ -602,12 +615,6 @@ namespace VAMOverlaysPlugin
 		{
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.text = _subtitlesText.val;
-		}
-
-		private void SubtitlesSizeCallback(float subtitlesSize)
-		{
-			if (_subtitlesTxt == null) return;
-			_subtitlesTxt.fontSize = GetFontSize(subtitlesSize);
 		}
 
 		private void SubtitlesAlignmentCallback(string alignmentChoice)
