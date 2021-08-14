@@ -615,6 +615,7 @@ namespace VAMOverlaysPlugin
 
 		private void DoShowSubtitles5Secs()
 		{
+			CancelInvoke(nameof(FadeInSubtitles));
 			CancelInvoke(nameof(DoHideSubtitles));
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
@@ -624,6 +625,7 @@ namespace VAMOverlaysPlugin
 
 		private void DoShowSubtitlesPermanent()
 		{
+			CancelInvoke(nameof(FadeInSubtitles));
 			CancelInvoke(nameof(DoHideSubtitles));
 			SyncVRMode();
 			if (_subtitlesTxt == null) return;
@@ -633,22 +635,21 @@ namespace VAMOverlaysPlugin
 
 		private void SetAndShowSubtitles(string text)
 		{
-			CancelInvoke(nameof(DoHideSubtitles));
-			_subtitlesText.valNoCallback = text;
-			_setAndShowSubtitles.valNoCallback = "";
-			SyncVRMode();
-			if (_subtitlesTxt == null) return;
-			_subtitlesTxt.text = _subtitlesText.val;
-			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
-			_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
-			Invoke(nameof(DoHideSubtitles), _subtitlesShowDuration.val + _subtitlesFadeDuration.val);
+			SyncSubtitlesState(text);
+			if (_subtitlesTxt.canvasRenderer.GetAlpha() > float.Epsilon)
+			{
+				DoHideSubtitles();
+				Invoke(nameof(FadeInSubtitles), _subtitlesFadeDuration.val);
+			}
+			else
+			{
+				FadeInSubtitles();
+			}
 		}
 
 		private void DoSetAndShowSubtitlesInstant(string text)
 		{
-			CancelInvoke(nameof(DoHideSubtitles));
-			_subtitlesText.valNoCallback = text;
-			_setAndShowSubtitles.valNoCallback = "";
+			SyncSubtitlesState(text);
 			SyncVRMode();
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.text = _subtitlesText.val;
@@ -665,6 +666,23 @@ namespace VAMOverlaysPlugin
 		{
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+		}
+
+		private void SyncSubtitlesState(string text)
+		{
+			_subtitlesText.valNoCallback = text;
+			_setAndShowSubtitles.valNoCallback = "";
+			CancelInvoke(nameof(FadeInSubtitles));
+			CancelInvoke(nameof(DoHideSubtitles));
+		}
+
+		private void FadeInSubtitles()
+		{
+			SyncVRMode();
+			_subtitlesTxt.text = _subtitlesText.val;
+			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+			_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
+			Invoke(nameof(DoHideSubtitles), _subtitlesShowDuration.val + _subtitlesFadeDuration.val);
 		}
 
 		// **************************
