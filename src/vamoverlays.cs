@@ -96,7 +96,7 @@ namespace VAMOverlaysPlugin
 
 		private JSONStorableAction _showSubtitles5Secs;
 		private JSONStorableAction _showSubtitlesPermanent;
-		private JSONStorableString _setSubtitlesTextAndShowNow;
+		private JSONStorableString _setAndShowSubtitles;
 		private JSONStorableAction _hideSubtitles;
 
 #if(DEBUG)
@@ -272,7 +272,7 @@ namespace VAMOverlaysPlugin
 					"<b>Font :</b> The font family used by the subtitles.\n\n" +
 					"<b>Text alignment :</b> Where will the subtitles show on the screen.\n\n" +
 					"<b>Subtitles fade duration :</b> How much time it takes to fade the subtitles in or out.\n\n" +
-					"<b>Subtitles duration :</b> When triggered using 'Set subtitles text and show now', determines after how many seconds to hide the subtitles.\n\n" +
+					"<b>Subtitles duration :</b> When triggered using 'Set and show subtitles', determines after how many seconds to hide the subtitles.\n\n" +
 					"</color>"
 				);
 				var subtitlesHelpTextField = CreateTextField(subtitlesHelpText, true);
@@ -315,7 +315,7 @@ namespace VAMOverlaysPlugin
 				_triggerFadeOutInstant = new JSONStorableAction("Fade Out Instant", FadeOutInstant);
 				_showSubtitles5Secs = new JSONStorableAction("Show subtitles for 5secs", DoShowSubtitles5Secs);
 				_showSubtitlesPermanent = new JSONStorableAction("Show subtitles permanently", DoShowSubtitlesPermanent);
-				_setSubtitlesTextAndShowNow = new JSONStorableString("Set subtitles text and show now", "", SetSubtitlesTextAndShowNow) { isStorable = false };
+				_setAndShowSubtitles = new JSONStorableString("Set and show subtitles", "", SetAndShowSubtitles) { isStorable = false };
 				_hideSubtitles = new JSONStorableAction("Hide subtitles", DoHideSubtitles);
 
 				// Fake actions to split things the user can use safely
@@ -330,7 +330,7 @@ namespace VAMOverlaysPlugin
 				RegisterAction(_triggerFadeOut);
 				RegisterAction(_triggerFadeInInstant);
 				RegisterAction(_triggerFadeOutInstant);
-				RegisterString(_setSubtitlesTextAndShowNow);
+				RegisterString(_setAndShowSubtitles);
 
 				RegisterColor(_setFadeColor);
 				RegisterFloat(_setFadeInTime);
@@ -625,11 +625,11 @@ namespace VAMOverlaysPlugin
 			_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
 		}
 
-		private void SetSubtitlesTextAndShowNow(string text)
+		private void SetAndShowSubtitles(string text)
 		{
 			CancelInvoke(nameof(DoHideSubtitles));
 			_subtitlesText.valNoCallback = text;
-			_setSubtitlesTextAndShowNow.valNoCallback = "";
+			_setAndShowSubtitles.valNoCallback = "";
 			SyncVRMode();
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.text = _subtitlesText.val;
