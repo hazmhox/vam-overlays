@@ -97,7 +97,9 @@ namespace VAMOverlaysPlugin
 		private JSONStorableAction _showSubtitles5Secs;
 		private JSONStorableAction _showSubtitlesPermanent;
 		private JSONStorableString _setAndShowSubtitles;
+		private JSONStorableString _setAndShowSubtitlesInstant;
 		private JSONStorableAction _hideSubtitles;
+		private JSONStorableAction _hideSubtitlesInstant;
 
 #if(DEBUG)
 		private JSONStorableString _debugArea;
@@ -316,7 +318,9 @@ namespace VAMOverlaysPlugin
 				_showSubtitles5Secs = new JSONStorableAction("Show subtitles for 5secs", DoShowSubtitles5Secs);
 				_showSubtitlesPermanent = new JSONStorableAction("Show subtitles permanently", DoShowSubtitlesPermanent);
 				_setAndShowSubtitles = new JSONStorableString("Set and show subtitles", "", SetAndShowSubtitles) { isStorable = false };
+				_setAndShowSubtitlesInstant = new JSONStorableString("Set and show subtitles instant", "", DoSetAndShowSubtitlesInstant) { isStorable = false };
 				_hideSubtitles = new JSONStorableAction("Hide subtitles", DoHideSubtitles);
+				_hideSubtitlesInstant = new JSONStorableAction("Hide subtitles instant", DoHideSubtitlesInstant);
 
 				// Fake actions to split things the user can use safely
 				var fakeFuncUseBelow = new JSONStorableAction("- - - - Use these functions below ↓ - - - - -", () => { });
@@ -331,6 +335,7 @@ namespace VAMOverlaysPlugin
 				RegisterAction(_triggerFadeInInstant);
 				RegisterAction(_triggerFadeOutInstant);
 				RegisterString(_setAndShowSubtitles);
+				RegisterString(_setAndShowSubtitlesInstant);
 
 				RegisterColor(_setFadeColor);
 				RegisterFloat(_setFadeInTime);
@@ -346,6 +351,7 @@ namespace VAMOverlaysPlugin
 				RegisterAction(_showSubtitles5Secs);
 				RegisterAction(_showSubtitlesPermanent);
 				RegisterAction(_hideSubtitles);
+				RegisterAction(_hideSubtitlesInstant);
 
 				// JSONStorable Variables, the user should not use these without changing the save
 				RegisterAction(fakeFuncDoNotUseBelow);
@@ -638,10 +644,27 @@ namespace VAMOverlaysPlugin
 			Invoke(nameof(DoHideSubtitles), _subtitlesShowDuration.val + _subtitlesFadeDuration.val);
 		}
 
+		private void DoSetAndShowSubtitlesInstant(string text)
+		{
+			CancelInvoke(nameof(DoHideSubtitles));
+			_subtitlesText.valNoCallback = text;
+			_setAndShowSubtitles.valNoCallback = "";
+			SyncVRMode();
+			if (_subtitlesTxt == null) return;
+			_subtitlesTxt.text = _subtitlesText.val;
+			_subtitlesTxt.canvasRenderer.SetAlpha(1.0f);
+		}
+
 		private void DoHideSubtitles()
 		{
 			if (_subtitlesTxt == null) return;
 			_subtitlesTxt.CrossFadeAlpha(0.0f, _subtitlesFadeDuration.val, false);
+		}
+
+		private void DoHideSubtitlesInstant()
+		{
+			if (_subtitlesTxt == null) return;
+			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
 		}
 
 		// **************************
