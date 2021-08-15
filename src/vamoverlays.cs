@@ -66,6 +66,9 @@ namespace VAMOverlaysPlugin
 		private Shadow _subtitlesTxtShadow;
 		private RectTransform _subtitlesRecTr;
 
+		private bool _uiInitialized;
+		private bool _wasVR;
+
 		private JSONStorableBool _fadeAtStart;
 		private JSONStorableBool _fadeInOnLoadComplete;
 		private JSONStorableColor _fadeColor;
@@ -226,7 +229,7 @@ namespace VAMOverlaysPlugin
 				CreateColorPicker(_subtitlesColor, true);
 
 				// Preview
-				var previewSubtitles = new JSONStorableBool("Preview subtitles", false, PreviewSubtitlesCallback);
+				var previewSubtitles = new JSONStorableBool("Preview subtitles", false, PreviewSubtitlesCallback) { isStorable = false };
 				CreateToggle(previewSubtitles, true);
 
 				_subtitlesSize = new JSONStorableFloat("Subtitles size", 18, SubtitlesSizeCallback, 12, 100);
@@ -317,7 +320,7 @@ namespace VAMOverlaysPlugin
 				_triggerFadeOutInstant = new JSONStorableAction("Fade Out Instant", FadeOutInstant);
 				_showSubtitles5Secs = new JSONStorableAction("Show subtitles for 5secs", DoShowSubtitles5Secs);
 				_showSubtitlesPermanent = new JSONStorableAction("Show subtitles permanently", DoShowSubtitlesPermanent);
-				_setAndShowSubtitles = new JSONStorableString("Set and show subtitles", "", SetAndShowSubtitles) { isStorable = false };
+				_setAndShowSubtitles = new JSONStorableString("Set and show subtitles", "", DoSetAndShowSubtitles) { isStorable = false };
 				_setAndShowSubtitlesInstant = new JSONStorableString("Set and show subtitles instant", "", DoSetAndShowSubtitlesInstant) { isStorable = false };
 				_hideSubtitles = new JSONStorableAction("Hide subtitles", DoHideSubtitles);
 				_hideSubtitlesInstant = new JSONStorableAction("Hide subtitles instant", DoHideSubtitlesInstant);
@@ -425,31 +428,30 @@ namespace VAMOverlaysPlugin
 		// Global FadeIn Function
 		private void FadeIn()
 		{
-			_fadeImg.canvasRenderer.SetAlpha(1.0f);
 			_fadeImg.CrossFadeAlpha(0.0f, _fadeInTime.val, false);
 		}
 
 		private void FadeInInstant()
 		{
-			_fadeImg.canvasRenderer.SetAlpha(0.0f);
+			_fadeImg.CrossFadeAlpha(0.0f, 0f, false);
 		}
 
 		// Triggers the FadeIn when you click on the test button
 		private void TestFadeIn()
 		{
+			_fadeImg.CrossFadeAlpha(1.0f, 0f, false);
 			FadeIn();
 		}
 
 		// Global FadeOut Function
 		private void FadeOut()
 		{
-			_fadeImg.canvasRenderer.SetAlpha(0.0f);
 			_fadeImg.CrossFadeAlpha(1.0f, _fadeOutTime.val, false);
 		}
 
 		private void FadeOutInstant()
 		{
-			_fadeImg.canvasRenderer.SetAlpha(1.0f);
+			_fadeImg.CrossFadeAlpha(1.0f, 0f, false);
 		}
 
 		// Triggers the FadeOut when you click on the test button
@@ -522,7 +524,7 @@ namespace VAMOverlaysPlugin
 			_fadeImgGO.AddComponent<CanvasRenderer>();
 			_fadeImg = _fadeImgGO.AddComponent<Image>();
 			_fadeImg.raycastTarget = false;
-			_fadeImg.canvasRenderer.SetAlpha(0.0f);
+			_fadeImg.canvasRenderer.SetAlpha(0f);
 			_fadeImg.color = _fadeColor.colorPicker.currentColor;
 
 			// Configuration of the RectTransform of the fade
@@ -549,7 +551,7 @@ namespace VAMOverlaysPlugin
 
 			// Defining text properties
 			_subtitlesTxt.raycastTarget = false;
-			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+			_subtitlesTxt.canvasRenderer.SetAlpha(0f);
 			_subtitlesTxt.color = _subtitlesColor.colorPicker.currentColor;
 			_subtitlesTxt.text = "";
 
@@ -570,15 +572,17 @@ namespace VAMOverlaysPlugin
 			_subtitlesRecTr.anchorMin = new Vector2(0, 0);
 			_subtitlesRecTr.anchorMax = new Vector2(1, 1);
 
+			_uiInitialized = true;
+
 			SyncVRMode();
 		}
 
-		private void SyncFontSize()
+		private void SyncFontSize(bool isVR)
 		{
-			if (_subtitlesTxt == null) return;
+			if (!_uiInitialized) return;
 			var size = _subtitlesSize.val;
 			var finalSize = size * 2.34f; // original value * tweak for updates (to avoid breaking old scenes)
-			if (SuperController.singleton.centerCameraTarget.targetCamera != SuperController.singleton.MonitorCenterCamera)
+			if (isVR)
 			{
 				finalSize = size * 5f; // VR multiplier - was 2.5f
 			}
@@ -586,103 +590,109 @@ namespace VAMOverlaysPlugin
 			_subtitlesTxt.fontSize = (int)Math.Round(finalSize);
 		}
 
-		private void SyncOverlay()
+		private void SyncOverlay(bool isVR)
 		{
-			if (_subtitlesRecTr == null) return;
+			if (!_uiInitialized) return;
 			var cam = SuperController.singleton.centerCameraTarget.targetCamera;
 			if (cam == null) return;
 			_vamOverlaysGO.transform.SetParent(cam.transform, false);
 			_overlaysCanvas.worldCamera = cam;
-			if (cam == SuperController.singleton.MonitorCenterCamera)
-			{
-				// Desktop config
-				_subtitlesRecTr.offsetMin = new Vector2(300.0f, -200.0f);
-				_subtitlesRecTr.offsetMax = new Vector2(-300.0f, 200.0f);
-			}
-			else
+			if (isVR)
 			{
 				// VR Configs
 				_subtitlesRecTr.offsetMin = new Vector2(370.0f, 0.0f); // Was 280f initially
 				_subtitlesRecTr.offsetMax = new Vector2(-370.0f, 0.0f);
 			}
+			else
+			{
+				// Desktop config
+				_subtitlesRecTr.offsetMin = new Vector2(300.0f, -200.0f);
+				_subtitlesRecTr.offsetMax = new Vector2(-300.0f, 200.0f);
+			}
+
+			// Avoid switching device issues
+			_fadeImg.CrossFadeAlpha(0f, 0f, false);
+			_subtitlesTxt.CrossFadeAlpha(0f, 0f, false);
 		}
 
 		private void SyncVRMode()
 		{
-			SyncOverlay();
-			SyncFontSize();
+			var isVR = !SuperController.singleton.IsMonitorRigActive;
+			if (_wasVR == isVR) return;
+			_wasVR = isVR;
+			SyncOverlay(isVR);
+			SyncFontSize(isVR);
+		}
+
+		private void BeforeShowSubtitles()
+		{
+			CancelInvoke(nameof(DoSetAndShowSubtitlesDelayed));
+			CancelInvoke(nameof(DoHideSubtitles));
+			SyncVRMode();
 		}
 
 		private void DoShowSubtitles5Secs()
 		{
-			CancelInvoke(nameof(FadeInSubtitles));
-			CancelInvoke(nameof(DoHideSubtitles));
-			if (_subtitlesTxt == null) return;
-			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+			if (!_uiInitialized) return;
+			BeforeShowSubtitles();
 			_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
 			Invoke(nameof(DoHideSubtitles), 5 + _subtitlesFadeDuration.val);
 		}
 
 		private void DoShowSubtitlesPermanent()
 		{
-			CancelInvoke(nameof(FadeInSubtitles));
-			CancelInvoke(nameof(DoHideSubtitles));
-			SyncVRMode();
-			if (_subtitlesTxt == null) return;
-			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+			if (!_uiInitialized) return;
+			BeforeShowSubtitles();
 			_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
 		}
 
-		private void SetAndShowSubtitles(string text)
+		private void DoSetAndShowSubtitles(string text)
 		{
-			SyncSubtitlesState(text);
+			if (!_uiInitialized) return;
+			BeforeShowSubtitles();
+			_subtitlesText.valNoCallback = text;
+			_setAndShowSubtitles.valNoCallback = "";
 			if (_subtitlesTxt.canvasRenderer.GetAlpha() > float.Epsilon)
 			{
 				DoHideSubtitles();
-				Invoke(nameof(FadeInSubtitles), _subtitlesFadeDuration.val);
+				Invoke(nameof(DoSetAndShowSubtitlesDelayed), _subtitlesFadeDuration.val);
 			}
 			else
 			{
-				FadeInSubtitles();
+				DoSetAndShowSubtitlesDelayed();
 			}
+		}
+
+		private void DoSetAndShowSubtitlesDelayed()
+		{
+			if (!_uiInitialized) return;
+			_subtitlesTxt.text = _subtitlesText.val;
+			_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
+			Invoke(nameof(DoHideSubtitles), _subtitlesShowDuration.val + _subtitlesFadeDuration.val);
 		}
 
 		private void DoSetAndShowSubtitlesInstant(string text)
 		{
-			SyncSubtitlesState(text);
-			SyncVRMode();
-			if (_subtitlesTxt == null) return;
+			if (!_uiInitialized) return;
+			BeforeShowSubtitles();
+			_subtitlesText.valNoCallback = text;
+			_setAndShowSubtitlesInstant.valNoCallback = "";
 			_subtitlesTxt.text = _subtitlesText.val;
-			_subtitlesTxt.canvasRenderer.SetAlpha(1.0f);
+			_subtitlesTxt.CrossFadeAlpha(1.0f, 0f, false);
 		}
 
 		private void DoHideSubtitles()
 		{
-			if (_subtitlesTxt == null) return;
+			if (!_uiInitialized) return;
+			BeforeShowSubtitles();
 			_subtitlesTxt.CrossFadeAlpha(0.0f, _subtitlesFadeDuration.val, false);
 		}
 
 		private void DoHideSubtitlesInstant()
 		{
-			if (_subtitlesTxt == null) return;
-			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
-		}
-
-		private void SyncSubtitlesState(string text)
-		{
-			_subtitlesText.valNoCallback = text;
-			_setAndShowSubtitles.valNoCallback = "";
-			CancelInvoke(nameof(FadeInSubtitles));
-			CancelInvoke(nameof(DoHideSubtitles));
-		}
-
-		private void FadeInSubtitles()
-		{
-			SyncVRMode();
-			_subtitlesTxt.text = _subtitlesText.val;
-			_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
-			_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
-			Invoke(nameof(DoHideSubtitles), _subtitlesShowDuration.val + _subtitlesFadeDuration.val);
+			if (!_uiInitialized) return;
+			BeforeShowSubtitles();
+			_subtitlesTxt.CrossFadeAlpha(0.0f, 0f, false);
 		}
 
 		// **************************
@@ -709,7 +719,7 @@ namespace VAMOverlaysPlugin
 
 		private void FadeColorCallback(JSONStorableColor selectedColor)
 		{
-			if (_fadeImg == null) return;
+			if (!_uiInitialized) return;
 			_fadeImg.color = HSVColorPicker.HSVToRGB(selectedColor.val);
 			_setFadeColor.valNoCallback = selectedColor.val;
 		}
@@ -728,37 +738,37 @@ namespace VAMOverlaysPlugin
 
 		private void SubtitlesColorCallback(JSONStorableColor selectedColor)
 		{
-			if (_subtitlesTxt == null) return;
+			if (!_uiInitialized) return;
 			_subtitlesTxt.color = HSVColorPicker.HSVToRGB(selectedColor.val);
 			_setSubtitlesColor.valNoCallback = selectedColor.val;
 		}
 
 		private void PreviewSubtitlesCallback(JSONStorableBool state)
 		{
-			if (_subtitlesTxt == null) return;
+			if (!_uiInitialized) return;
+			BeforeShowSubtitles();
 			if (state.val)
 			{
-				CancelInvoke(nameof(DoHideSubtitles));
-				SyncVRMode();
 				_subtitlesTxt.text = GetRandomQuote();
-				_subtitlesTxt.canvasRenderer.SetAlpha(1.0f);
+				_subtitlesTxt.CrossFadeAlpha(1.0f, _subtitlesFadeDuration.val, false);
 			}
 			else
 			{
-				_subtitlesTxt.canvasRenderer.SetAlpha(0.0f);
+				_subtitlesTxt.CrossFadeAlpha(0.0f, _subtitlesFadeDuration.val, false);
 			}
 		}
 
 		private void SubtitlesSizeCallback(float val)
 		{
+			if (!_uiInitialized) return;
 			_subtitlesSize.valNoCallback = Mathf.Round(val);
 			_setSubtitlesSize.valNoCallback = _subtitlesSize.val;
-			SyncFontSize();
+			SyncFontSize(_wasVR);
 		}
 
 		private void SubtitlesValueCallback(JSONStorableString text)
 		{
-			if (_subtitlesTxt == null) return;
+			if (!_uiInitialized) return;
 			_subtitlesTxt.text = _subtitlesText.val;
 		}
 
