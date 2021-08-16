@@ -495,13 +495,9 @@ namespace VAMOverlaysPlugin
 			// Creation of the main Canvas
 			_vamOverlaysGO = new GameObject("FadeCanvas")
 			{
-				transform =
-				{
-					localRotation = Quaternion.identity,
-					localPosition = new Vector3(0, 0, 0)
-				},
 				layer = 5
 			};
+			_vamOverlaysGO.transform.SetParent(SuperController.singleton.centerCameraTarget.targetCamera.transform, false);
 			_overlaysCanvas = _vamOverlaysGO.AddComponent<Canvas>();
 			_overlaysCanvas.renderMode = RenderMode.WorldSpace;
 			_overlaysCanvas.sortingOrder = 2;
@@ -596,6 +592,7 @@ namespace VAMOverlaysPlugin
 			var cam = SuperController.singleton.centerCameraTarget.targetCamera;
 			if (cam == null) return;
 			_vamOverlaysGO.transform.SetParent(cam.transform, false);
+			_vamOverlaysGO.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
 			_overlaysCanvas.worldCamera = cam;
 			if (isVR)
 			{
