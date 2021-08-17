@@ -463,7 +463,7 @@ namespace VAMOverlaysPlugin
 
 		private void ChangeSubtitlesFont(string fontVal)
 		{
-			if (_subtitlesTxt == null) return;
+			if (!_uiInitialized) return;
 			Font font;
 			if (_fontAssets.TryGetValue(fontVal, out font))
 				_subtitlesTxt.font = font;
@@ -472,7 +472,7 @@ namespace VAMOverlaysPlugin
 
 		private void ChangeSubtitlesAlignment(string alignmentVal)
 		{
-			if (_subtitlesTxt == null) return;
+			if (!_uiInitialized) return;
 			switch (alignmentVal)
 			{
 				case "Center":
@@ -495,13 +495,9 @@ namespace VAMOverlaysPlugin
 			// Creation of the main Canvas
 			_vamOverlaysGO = new GameObject("FadeCanvas")
 			{
-				transform =
-				{
-					localRotation = Quaternion.identity,
-					localPosition = new Vector3(0, 0, 0)
-				},
 				layer = 5
 			};
+			_vamOverlaysGO.transform.SetParent(SuperController.singleton.centerCameraTarget.targetCamera.transform, false);
 			_overlaysCanvas = _vamOverlaysGO.AddComponent<Canvas>();
 			_overlaysCanvas.renderMode = RenderMode.WorldSpace;
 			_overlaysCanvas.sortingOrder = 2;
@@ -555,11 +551,6 @@ namespace VAMOverlaysPlugin
 			_subtitlesTxt.color = _subtitlesColor.colorPicker.currentColor;
 			_subtitlesTxt.text = "";
 
-			_subtitlesTxt.font = _fontAssets["Arial"];
-
-			// Selecting the default alignment
-			ChangeSubtitlesAlignment(_subtitleAlignmentChoice.val);
-
 			// Defining shadow properties
 			_subtitlesTxtShadow.effectColor = Color.black;
 			_subtitlesTxtShadow.effectDistance = new Vector2(2f, -0.5f);
@@ -572,9 +563,17 @@ namespace VAMOverlaysPlugin
 			_subtitlesRecTr.anchorMin = new Vector2(0, 0);
 			_subtitlesRecTr.anchorMax = new Vector2(1, 1);
 
+			// The UI is ready
 			_uiInitialized = true;
 
+			// Selecting the default alignment
+			ChangeSubtitlesAlignment(_subtitleAlignmentChoice.val);
+			ChangeSubtitlesFont(_subtitlesFontChoice.val);
+
+			// Update VR-dependent options
 			SyncVRMode();
+			SyncOverlay(_wasVR);
+			SyncFontSize(_wasVR);
 		}
 
 		private void SyncFontSize(bool isVR)
