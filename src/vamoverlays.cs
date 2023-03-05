@@ -708,7 +708,7 @@ namespace VAMOverlaysPlugin
 				// Adding font asset if successfully loaded in the assets
 				_fontAssets.Add(fontKvp.Key, fnt);
 				// If we have a value set in the custom UI that is the same as our font, let's update the Canvas
-				if (_subtitleAlignmentChoice.val == fontKvp.Key)
+				if (_subtitlesFontChoice.val == fontKvp.Key)
 				{
 					ChangeSubtitlesFont(fontKvp.Key);
 				}
